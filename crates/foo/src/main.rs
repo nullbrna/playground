@@ -1,3 +1,7 @@
+use log::abort;
+use log::info;
+
 fn main() {
-    println!("Hello, foo!");
+    info!("Hello, info!");
+    abort!("Hello, abort!");
 }

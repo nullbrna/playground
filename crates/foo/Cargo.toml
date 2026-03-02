@@ -4,7 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-
-[[bin]]
-name = "foo"
-path = "src/main.rs"
+log = { workspace = true }
