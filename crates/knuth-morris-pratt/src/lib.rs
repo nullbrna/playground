@@ -1,37 +1,182 @@
 /// Compute the LPS (Longest Prefix Suffix) array for a given pattern.
 ///
-/// The length of the returned LPS array is equal to the length of `pattern`.
-fn kmp_failure_function(pattern: &str) -> Vec<usize> {
-    let pattern_chars: Vec<char> = pattern.chars().collect();
-    let pattern_length = pattern_chars.len();
+/// Find the pattern with both a prefix and a suffix, storing the length of
+/// full/partial matches. The length of the returned LPS array is equal to the
+/// length of `pattern`.
+#[allow(unused)]
+fn kmp_failure_function(pattern: &[u8]) -> Vec<usize> {
+    let pattern_length = pattern.len();
+    let mut lps = vec![0; pattern_length];
 
-    if pattern_length == 0 {
-        return Vec::new();
-    }
-
-    let mut lps = Vec::with_capacity(pattern_length);
-    // First element is always 0. No prefix for a single character.
-    lps[0] = 0;
-
+    // First element is always 0 as there's no proper prefix.
     let mut pattern_index = 1;
+    // Count of characters matched as we iterate.
     let mut prev_lps_length = 0;
 
     while pattern_index < pattern_length {
-        if pattern_chars[pattern_index] == pattern_chars[prev_lps_length] {
+        // Characters match, extend the current prefix/suffix length.
+        if pattern[pattern_index] == pattern[prev_lps_length] {
             prev_lps_length += 1;
+            // Increment length to account for this iteration match.
             lps[pattern_index] = prev_lps_length;
+
             pattern_index += 1;
             continue;
         }
 
+        // Don't iterate, try the previous stored length.
         if prev_lps_length != 0 {
             prev_lps_length = lps[prev_lps_length - 1];
             continue;
         }
 
-        lps[pattern_index] = 0;
+        // Mismatch with no previous prefix to fall back to.
         pattern_index += 1;
     }
 
     lps
+}
+
+/// Find the starting index of a matched pattern.
+///
+/// Use a failure function to iterate over the `source` comparing to the
+/// corresponding `pattern` without double-checking segments.
+#[allow(unused)]
+fn kmp_search(source: &str, pattern: &str) -> Option<usize> {
+    if pattern.is_empty() {
+        return Some(0);
+    }
+
+    let source = source.as_bytes();
+    let pattern = pattern.as_bytes();
+
+    let lps = kmp_failure_function(pattern);
+
+    let mut source_index = 0;
+    let mut pattern_index = 0;
+
+    while source_index < source.len() {
+        // Characters match, increment both indices.
+        if source[source_index] == pattern[pattern_index] {
+            source_index += 1;
+            pattern_index += 1;
+
+            // Success state. Full pattern matched. Return the difference
+            // between our end position of the match and the pattern length.
+            if pattern_index == pattern.len() {
+                return Some(source_index - pattern_index);
+            }
+
+            continue;
+        }
+
+        // Mismatch part-way through a pattern match. Use LPS to skip wasted
+        // pattern comparisons.
+        if pattern_index != 0 {
+            pattern_index = lps[pattern_index - 1];
+            continue;
+        }
+
+        // Mismatch at pattern start so iterate forward.
+        source_index += 1;
+    }
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kmp_failure_function_empty_pattern() {
+        let pattern = "".as_bytes();
+        let lps = kmp_failure_function(pattern);
+
+        assert_eq!(lps, vec![]);
+    }
+
+    #[test]
+    fn kmp_failure_function_no_repeats() {
+        let pattern = "ABCDE".as_bytes();
+        let lps = kmp_failure_function(pattern);
+
+        assert_eq!(lps, vec![0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn kmp_failure_function_all_repeats() {
+        let pattern = "AAAAA".as_bytes();
+        let lps = kmp_failure_function(pattern);
+
+        assert_eq!(lps, vec![0, 1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn kmp_failure_function_partial_repeat() {
+        let pattern = "ABABC".as_bytes();
+        let lps = kmp_failure_function(pattern);
+
+        assert_eq!(lps, vec![0, 0, 1, 2, 0]);
+    }
+
+    #[test]
+    fn kmp_search_empty() {
+        let source = "";
+        let pattern = "";
+
+        let found_index = kmp_search(source, pattern);
+
+        assert_eq!(found_index, Some(0));
+    }
+
+    #[test]
+    fn kmp_search_prefix() {
+        let source = "hello, world!";
+        let pattern = "hel";
+
+        let found_index = kmp_search(source, pattern);
+
+        assert_eq!(found_index, Some(0));
+    }
+
+    #[test]
+    fn kmp_search_middle() {
+        let source = "hello, world!";
+        let pattern = ", w";
+
+        let found_index = kmp_search(source, pattern);
+
+        assert_eq!(found_index, Some(5));
+    }
+
+    #[test]
+    fn kmp_search_end() {
+        let source = "hello, world!";
+        let pattern = "ld!";
+
+        let found_index = kmp_search(source, pattern);
+
+        assert_eq!(found_index, Some(10));
+    }
+
+    #[test]
+    fn kmp_search_not_found() {
+        let source = "hello, world!";
+        let pattern = "foo";
+
+        let found_index = kmp_search(source, pattern);
+
+        assert_eq!(found_index, None);
+    }
+
+    #[test]
+    fn kmp_search_pattern_longer() {
+        let source = "hello";
+        let pattern = "hello, world!";
+
+        let found_index = kmp_search(source, pattern);
+
+        assert_eq!(found_index, None);
+    }
 }
