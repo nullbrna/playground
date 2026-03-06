@@ -43,7 +43,9 @@ fn kmp_failure_function(pattern: &[u8]) -> Vec<usize> {
 /// corresponding `pattern` without double-checking segments.
 #[allow(unused)]
 fn kmp_search(source: &str, pattern: &str) -> Option<usize> {
-    if pattern.is_empty() {
+    if source.is_empty() {
+        return None;
+    } else if pattern.is_empty() {
         return Some(0);
     }
 
@@ -121,62 +123,50 @@ mod tests {
     }
 
     #[test]
-    fn kmp_search_empty() {
+    fn kmp_search_empty_source_and_pattern() {
         let source = "";
         let pattern = "";
 
-        let found_index = kmp_search(source, pattern);
-
-        assert_eq!(found_index, Some(0));
+        assert_eq!(kmp_search(source, pattern), None);
     }
 
     #[test]
-    fn kmp_search_prefix() {
+    fn kmp_search_prefix_match() {
         let source = "hello, world!";
         let pattern = "hel";
 
-        let found_index = kmp_search(source, pattern);
-
-        assert_eq!(found_index, Some(0));
+        assert_eq!(kmp_search(source, pattern), Some(0));
     }
 
     #[test]
-    fn kmp_search_middle() {
+    fn kmp_search_middle_match() {
         let source = "hello, world!";
         let pattern = ", w";
 
-        let found_index = kmp_search(source, pattern);
-
-        assert_eq!(found_index, Some(5));
+        assert_eq!(kmp_search(source, pattern), Some(5));
     }
 
     #[test]
-    fn kmp_search_end() {
+    fn kmp_search_suffix_match() {
         let source = "hello, world!";
         let pattern = "ld!";
 
-        let found_index = kmp_search(source, pattern);
-
-        assert_eq!(found_index, Some(10));
+        assert_eq!(kmp_search(source, pattern), Some(10));
     }
 
     #[test]
-    fn kmp_search_not_found() {
+    fn kmp_search_match_not_found() {
         let source = "hello, world!";
         let pattern = "foo";
 
-        let found_index = kmp_search(source, pattern);
-
-        assert_eq!(found_index, None);
+        assert_eq!(kmp_search(source, pattern), None);
     }
 
     #[test]
-    fn kmp_search_pattern_longer() {
+    fn kmp_search_longer_pattern_than_source() {
         let source = "hello";
         let pattern = "hello, world!";
 
-        let found_index = kmp_search(source, pattern);
-
-        assert_eq!(found_index, None);
+        assert_eq!(kmp_search(source, pattern), None);
     }
 }
