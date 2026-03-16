@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "boyer-moore"
+name = "bm"
 version = "0.1.0"
 
 [[package]]
@@ -15,4 +15,8 @@ dependencies = [
 
 [[package]]
 name = "log"
+version = "0.1.0"
+
+[[package]]
+name = "nb"
 version = "0.1.0"
