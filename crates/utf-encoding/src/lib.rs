@@ -4,8 +4,12 @@
 // 110xxxxx 10xxxxxx - 2-byte character (latin-1) e.g. ñ
 // 1110xxxx 10xxxxxx 10xxxxxx - 3-byte character e.g. €
 // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx - 4-byte character e.g. 😀
+//
+// The payload (code point) of each UTF-8 character can be classified as the
+// non-metadata bits i.e. all BUT the leading length and continuation bits.
 
-/// Using the leading byte, determine the length of the total UTF-8 string.
+/// Using each characters leading byte, determine the total count of UTF-8
+/// bytes.
 /// NOTE: Rust validates a string reference as UTF-8 at compile-time so this is
 /// technically redundant.
 #[allow(unused)]
@@ -15,10 +19,9 @@ fn raw_length(source: &str) -> usize {
     let mut count = 0;
     let mut index = 0;
 
-    // Iterate over each byte, checking the first byte and skipping the rest.
-    // NOTE: Restrict ambiguous checks by validating the extra bit is explicitly
-    // turned off e.g. 2-byte strings get a mask of 11100000.
     while let Some(byte) = bytes.get(index) {
+        // Restrict ambiguous checks by validating the extra bit is explicitly
+        // turned off e.g. 2-byte strings get a mask of 11100000.
         let length = match byte {
             value if value & 0b1000_0000 == 0b0000_0000 => 1,
             value if value & 0b1110_0000 == 0b1100_0000 => 2,
@@ -34,6 +37,8 @@ fn raw_length(source: &str) -> usize {
     count
 }
 
+/// For non-single byte UTF-8 strings, check the following continuation bytes
+/// for a valid format.
 #[allow(unused)]
 fn is_valid(source: &str) -> bool {
     let bytes = source.as_bytes();
@@ -48,14 +53,14 @@ fn is_valid(source: &str) -> bool {
             _ => return false,
         };
 
-        // Using the length, check the following continuation bytes for the
-        // correct format. Each continuation byte is prefixed with 10.
-        for cont_index in 1..length {
-            let Some(byte) = bytes.get(index + cont_index) else {
-                return false;
-            };
+        // Using the above length, check the next bytes ensuring they're
+        // prefixed with 10.
+        for offset in 1..length {
+            let is_continuation = bytes
+                .get(index + offset)
+                .is_some_and(|byte| byte & 0b1100_0000 == 0b1000_0000);
 
-            if byte & 0b1100_0000 != 0b1000_0000 {
+            if !is_continuation {
                 return false;
             }
         }
