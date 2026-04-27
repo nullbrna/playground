@@ -56,11 +56,10 @@ fn is_valid(source: &str) -> bool {
         // Using the above length, check the next bytes ensuring they're
         // prefixed with 10.
         for offset in 1..length {
-            let is_continuation = bytes
-                .get(index + offset)
-                .is_some_and(|byte| byte & 0b1100_0000 == 0b1000_0000);
+            let check = |source| source & 0b1100_0000 != 0b1000_0000;
+            let is_invalid = bytes.get(index + offset).is_some_and(check);
 
-            if !is_continuation {
+            if is_invalid {
                 return false;
             }
         }
