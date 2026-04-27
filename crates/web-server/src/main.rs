@@ -28,21 +28,21 @@ fn log_error<T: Display>(err: &T) {
 }
 
 fn init_logger() -> Level {
-    let level = {
+    let log_level = {
         let default = String::from("DEBUG");
-        let lvl = var("LOG_LEVEL").unwrap_or(default);
+        let lvl_from_env = var("LOG_LEVEL").unwrap_or(default);
 
-        Level::from_str(&lvl).unwrap_or(Level::DEBUG)
+        Level::from_str(&lvl_from_env).unwrap_or(Level::DEBUG)
     };
 
     fmt()
-        .with_max_level(level)
+        .with_max_level(log_level)
         .with_target(false)
         .compact()
         .init();
 
-    info!("logging level: {level}");
-    level
+    info!("logging level: {log_level}");
+    log_level
 }
 
 #[derive(Debug, Clone)]
@@ -52,12 +52,12 @@ struct AppState {
 
 impl AppState {
     async fn new() -> Self {
-        let Ok(connection) = var("DATABASE_URL").inspect_err(log_error) else {
+        let Ok(resource) = var("DATABASE_URL").inspect_err(log_error) else {
             exit(1);
         };
 
         let Ok(pool) = PgPoolOptions::new()
-            .connect(&connection)
+            .connect(&resource)
             .await
             .inspect_err(log_error)
         else {
@@ -91,7 +91,6 @@ async fn new_router(log_level: Level) -> Router {
 #[tokio::main]
 async fn main() {
     let log_level = init_logger();
-
     let host = {
         let default = String::from("8080");
         let port = var("PORT").unwrap_or(default);
@@ -99,7 +98,7 @@ async fn main() {
         format!("0.0.0.0:{port}")
     };
 
-    let Ok(listener) = TcpListener::bind(&host).await else {
+    let Ok(listener) = TcpListener::bind(&host).await.inspect_err(log_error) else {
         exit(1);
     };
 

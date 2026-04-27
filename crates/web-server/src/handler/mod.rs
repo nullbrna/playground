@@ -69,3 +69,36 @@ async fn find_user(pool: &PgPool, id: i32) -> HandlerResult<String> {
     let user_name = query_scalar(statement).bind(id).fetch_one(pool).await?;
     Ok(user_name)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::OnceLock;
+
+    use reqwest::Client;
+    use reqwest::StatusCode;
+
+    static CLIENT: OnceLock<Client> = OnceLock::new();
+
+    fn http_client() -> &'static Client {
+        let setter = || {
+            Client::builder()
+                .pool_max_idle_per_host(10)
+                .build()
+                .unwrap()
+        };
+
+        CLIENT.get_or_init(setter)
+    }
+
+    #[tokio::test]
+    async fn index() {
+        let response = http_client()
+            .get("http://localhost:8080")
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.text().await.unwrap(), "John");
+    }
+}
