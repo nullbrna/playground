@@ -28,12 +28,11 @@ impl From<StatusCode> for HandlerError {
 
 impl From<sqlx::Error> for HandlerError {
     fn from(value: sqlx::Error) -> Self {
-        error!("[DATABASE] {value}");
-
         if matches!(value, sqlx::Error::RowNotFound) {
             return Self(StatusCode::NOT_FOUND);
         }
 
+        error!("[DATABASE] {value}");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
@@ -45,7 +44,7 @@ impl From<anyhow::Error> for HandlerError {
     }
 }
 
-pub async fn middleware_handler(
+pub async fn middleware(
     State(state): State<AppState>,
     request: Request,
     next: Next,
@@ -54,20 +53,20 @@ pub async fn middleware_handler(
     Ok(next.run(request).await)
 }
 
-pub async fn index_handler(State(state): State<AppState>) -> HandlerResult<impl IntoResponse> {
-    let user = find_user(&state.pool, 1).await?;
-    Ok(user)
+pub async fn index(State(state): State<AppState>) -> HandlerResult<impl IntoResponse> {
+    let first_name = find_name_by_id(&state.pool, 1).await?;
+    Ok(first_name)
 }
 
-async fn find_user(pool: &PgPool, id: i32) -> HandlerResult<String> {
+async fn find_name_by_id(pool: &PgPool, id: i32) -> HandlerResult<String> {
     let statement = r#"
         SELECT first_name
         FROM users
         WHERE id = $1
     "#;
 
-    let user_name = query_scalar(statement).bind(id).fetch_one(pool).await?;
-    Ok(user_name)
+    let first_name = query_scalar(statement).bind(id).fetch_one(pool).await?;
+    Ok(first_name)
 }
 
 #[cfg(test)]
