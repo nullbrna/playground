@@ -4,6 +4,7 @@ use std::str::FromStr;
 use axum::Router;
 use axum::middleware::from_fn_with_state;
 use axum::routing::get;
+use axum::routing::post;
 use axum::serve;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
@@ -37,6 +38,8 @@ fn start_logger() -> Level {
 
 #[derive(Debug, Clone)]
 struct AppState {
+    /// Connection pool for Postgres.
+    /// NOTE: [`PgPool`] under-the-hood is an [`std::sync::Arc`].
     pool: PgPool,
 }
 
@@ -76,6 +79,7 @@ async fn setup_service(log_level: Level) -> (TcpListener, Router) {
 
     let router = Router::new()
         .route("/", get(handler::index))
+        .route("/idempotency", post(handler::idempotency::core))
         .layer(middleware)
         .layer(tracing)
         .with_state(state);

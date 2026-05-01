@@ -27,3 +27,9 @@ INSERT INTO users (first_name, last_name, age) VALUES
     ('Michelle',    'Thompson',  45),
     ('Joshua',      'White',     32),
     ('Lauren',      'Lopez',     41);
+
+CREATE TABLE IF NOT EXISTS idempotency (
+    key        TEXT        PRIMARY KEY,
+    status     SMALLINT    NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+)
