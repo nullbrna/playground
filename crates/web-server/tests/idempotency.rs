@@ -70,3 +70,9 @@ async fn different_key_misses_cache() {
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(response.text().await.unwrap(), "CACHE_MISS");
 }
+
+#[tokio::test]
+async fn missing_key_is_bad_request() {
+    let response = http_client().post(ENDPOINT).send().await.unwrap();
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}

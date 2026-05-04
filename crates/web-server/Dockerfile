@@ -13,7 +13,7 @@ COPY src    ./src
 RUN cargo install cargo-watch
 
 # Restart buffer watcher through non-zero exit codes.
-CMD ["sh", "-c", "while true; do cargo watch -x 'cargo run'; sleep 1; done"]
+CMD ["sh", "-c", "while true; do cargo watch -x run; sleep 1; done"]
 
 ###############
 # Production  #

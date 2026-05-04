@@ -42,7 +42,7 @@ pub async fn core(
     Ok((StatusCode::CREATED, "CACHE_MISS"))
 }
 
-async fn find_status_by_key(pool: &PgPool, key: &str) -> HandlerResult<Option<i32>> {
+async fn find_status_by_key(pool: &PgPool, key: &str) -> HandlerResult<Option<i16>> {
     let statement = r#"
         SELECT status
         FROM idempotency
