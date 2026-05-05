@@ -95,6 +95,7 @@ async fn setup_service(log_level: Level) -> (TcpListener, Router) {
     let router = Router::new()
         .route("/", get(handler::index))
         .route("/idempotency", post(handler::idempotency::core))
+        .route("/rate-limiter", get(handler::ratelimiter::core))
         .layer(middleware)
         .layer(tracing)
         .with_state(state);

@@ -67,7 +67,7 @@ async fn insert_status_by_key(pool: &PgPool, key: &str) -> HandlerResult<()> {
     query(statement)
         .bind(key)
         .bind(201)
-        .bind(86400) // 1 day TTL in seconds
+        .bind(86400) // 1 day (seconds) TTL.
         .execute(pool)
         .await?;
 

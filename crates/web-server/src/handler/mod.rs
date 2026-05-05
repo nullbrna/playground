@@ -10,6 +10,7 @@ use tracing::info;
 use crate::AppState;
 
 pub mod idempotency;
+pub mod ratelimiter;
 
 pub struct HandlerError(StatusCode);
 type HandlerResult<T> = Result<T, HandlerError>;
@@ -40,6 +41,13 @@ impl From<sqlx::Error> for HandlerError {
 impl From<anyhow::Error> for HandlerError {
     fn from(value: anyhow::Error) -> Self {
         error!("[UNEXPECTED] {value}");
+        Self(StatusCode::INTERNAL_SERVER_ERROR)
+    }
+}
+
+impl From<redis::RedisError> for HandlerError {
+    fn from(value: redis::RedisError) -> Self {
+        error!("[REDIS] {value}");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
