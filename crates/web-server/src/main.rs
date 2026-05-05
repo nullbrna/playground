@@ -6,6 +6,8 @@ use axum::middleware::from_fn_with_state;
 use axum::routing::get;
 use axum::routing::post;
 use axum::serve;
+use redis::Client;
+use redis::aio::ConnectionManager;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
@@ -41,16 +43,29 @@ struct AppState {
     /// Connection pool for Postgres.
     /// NOTE: [`PgPool`] under-the-hood is an [`std::sync::Arc`].
     pool: PgPool,
+    /// Connection to Redis. Automatically reconnects when needed.
+    redis: ConnectionManager,
 }
 
 impl AppState {
     async fn new() -> Self {
         // NOTE: Prefer unwrapping for stack trace at start-up. Will fail on a
         // missing database URI or opening/connecting-to the pool.
-        let resource = var("DATABASE_URL").unwrap();
-        let pool = PgPoolOptions::new().connect(&resource).await.unwrap();
+        let pool = {
+            let resource = var("DATABASE_URL").unwrap();
+            PgPoolOptions::new().connect(&resource).await.unwrap()
+        };
 
-        Self { pool }
+        // NOTE: Prefer unwrapping for stack trace at start-up. Will fail on
+        // URI validation or the initial connection.
+        let redis = {
+            let resource = var("REDIS_URL").unwrap();
+            let client = Client::open(resource).unwrap();
+
+            ConnectionManager::new(client).await.unwrap()
+        };
+
+        Self { pool, redis }
     }
 }
 

@@ -27,8 +27,8 @@ pub async fn core(
     // be used to early-return the exact same response.
     // NOTE: Usually the response payload is also cached & returned.
     if let Some(cached_status) = find_status_by_key(&state.pool, key).await? {
-        let unsigned_code = u16::try_from(cached_status).map_err(anyhow::Error::from)?;
-        let status_code = StatusCode::from_u16(unsigned_code).map_err(anyhow::Error::from)?;
+        let decoded_status = u16::try_from(cached_status).map_err(anyhow::Error::from)?;
+        let status_code = StatusCode::from_u16(decoded_status).map_err(anyhow::Error::from)?;
 
         info!("[IDEMPOTENCY] cache hit: {key}");
         return Ok((status_code, "CACHE_HIT"));
@@ -36,7 +36,7 @@ pub async fn core(
 
     // At this point, we haven't got the key cached so set a fresh one. Best to
     // perform any read/write operations AFTER this has successfully run.
-    insert_new_idempotent_status(&state.pool, key).await?;
+    insert_status_by_key(&state.pool, key).await?;
     info!("[IDEMPOTENCY] cache miss: {key}");
 
     Ok((StatusCode::CREATED, "CACHE_MISS"))
@@ -57,7 +57,7 @@ async fn find_status_by_key(pool: &PgPool, key: &str) -> HandlerResult<Option<i1
         .map_err(HandlerError::from)
 }
 
-async fn insert_new_idempotent_status(pool: &PgPool, key: &str) -> HandlerResult<()> {
+async fn insert_status_by_key(pool: &PgPool, key: &str) -> HandlerResult<()> {
     // NOTE: Added keys are NOT purged on expiry.
     let statement = r#"
         INSERT INTO idempotency (key, status, expires_at)
