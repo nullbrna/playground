@@ -71,8 +71,8 @@ impl AppState {
     }
 }
 
-type RouterWithIp = IntoMakeServiceWithConnectInfo<Router, SocketAddr>;
-async fn setup_service(log_level: Level) -> (TcpListener, RouterWithIp) {
+type RouterWithIP = IntoMakeServiceWithConnectInfo<Router, SocketAddr>;
+async fn setup_service(log_level: Level) -> (TcpListener, RouterWithIP) {
     let host = {
         let fallback_port = String::from("8080");
         let port = var("PORT").unwrap_or(fallback_port);
@@ -102,7 +102,7 @@ async fn setup_service(log_level: Level) -> (TcpListener, RouterWithIp) {
         .layer(middleware)
         .layer(tracing)
         .with_state(state)
-        // Allows for reading the request IP.
+        // Allows for reading the request IP through an extension.
         .into_make_service_with_connect_info::<SocketAddr>();
 
     info!("starting: {host}");
