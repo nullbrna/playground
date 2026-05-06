@@ -71,12 +71,8 @@ impl AppState {
     }
 }
 
-async fn setup_service(
-    log_level: Level,
-) -> (
-    TcpListener,
-    IntoMakeServiceWithConnectInfo<Router, SocketAddr>,
-) {
+type RouterWithIp = IntoMakeServiceWithConnectInfo<Router, SocketAddr>;
+async fn setup_service(log_level: Level) -> (TcpListener, RouterWithIp) {
     let host = {
         let fallback_port = String::from("8080");
         let port = var("PORT").unwrap_or(fallback_port);
