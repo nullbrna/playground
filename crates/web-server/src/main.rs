@@ -1,7 +1,9 @@
 use std::env::var;
+use std::net::SocketAddr;
 use std::str::FromStr;
 
 use axum::Router;
+use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
 use axum::middleware::from_fn_with_state;
 use axum::routing::get;
 use axum::routing::post;
@@ -69,7 +71,12 @@ impl AppState {
     }
 }
 
-async fn setup_service(log_level: Level) -> (TcpListener, Router) {
+async fn setup_service(
+    log_level: Level,
+) -> (
+    TcpListener,
+    IntoMakeServiceWithConnectInfo<Router, SocketAddr>,
+) {
     let host = {
         let fallback_port = String::from("8080");
         let port = var("PORT").unwrap_or(fallback_port);
@@ -98,7 +105,9 @@ async fn setup_service(log_level: Level) -> (TcpListener, Router) {
         .route("/rate-limiter", get(handler::ratelimiter::core))
         .layer(middleware)
         .layer(tracing)
-        .with_state(state);
+        .with_state(state)
+        // Allows for reading the request IP.
+        .into_make_service_with_connect_info::<SocketAddr>();
 
     info!("starting: {host}");
     (listener, router)
