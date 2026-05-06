@@ -9,19 +9,18 @@ use tracing::error;
 use tracing::info;
 
 use crate::AppState;
-use crate::handler::HandlerError;
 use crate::handler::HandlerResult;
 
 // Number of requests allowed within the window.
 const LIMIT_COUNT: i64 = 10;
-// TTL (seconds).
+// TTL (seconds) for a key.
 const LIMIT_WINDOW: i64 = 2;
 
 pub async fn core(
     ConnectInfo(address): ConnectInfo<SocketAddr>,
     State(state): State<AppState>,
 ) -> HandlerResult<impl IntoResponse> {
-    let mut connection = state.redis.clone(); // Allocate slot from the pool.
+    let mut connection = state.redis.clone();
     let limiter_key = format!("rate_limiter:{}", address.ip());
 
     // Increment/initialise (to 1) the request count against the IP. Each
@@ -40,7 +39,7 @@ pub async fn core(
 
     if count > LIMIT_COUNT {
         error!("[RATE_LIMITER] {limiter_key} suspended");
-        return Err(HandlerError::from(StatusCode::TOO_MANY_REQUESTS));
+        return Err(StatusCode::TOO_MANY_REQUESTS)?;
     }
 
     info!("[RATE_LIMITER] {limiter_key} has requested {count} time(s)");

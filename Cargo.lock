@@ -196,7 +196,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bm"
+name = "boyer-moore"
 version = "0.1.0"
 
 [[package]]
@@ -1023,7 +1023,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kmp"
+name = "knuth-morris-pratt"
 version = "0.1.0"
 
 [[package]]
@@ -1142,7 +1142,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nb"
+name = "naive-bayes"
 version = "0.1.0"
 
 [[package]]
@@ -2481,7 +2481,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "utf"
+name = "utf-encoding"
 version = "0.1.0"
 
 [[package]]
@@ -2655,6 +2655,24 @@ dependencies = [
  "hashbrown 0.15.5",
  "indexmap",
  "semver",
+]
+
+[[package]]
+name = "web-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum-extra",
+ "redis",
+ "reqwest",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]
@@ -3079,24 +3097,6 @@ name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
-
-[[package]]
-name = "ws"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "axum-extra",
- "redis",
- "reqwest",
- "serde_json",
- "sqlx",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
 
 [[package]]
 name = "xxhash-rust"
