@@ -20,6 +20,10 @@ use tracing::Level;
 use tracing::info;
 use tracing_subscriber::fmt;
 
+use crate::handler::idempotency;
+use crate::handler::index;
+use crate::handler::ratelimiter;
+
 mod handler;
 
 fn start_logger() -> Level {
@@ -95,10 +99,22 @@ async fn setup_service(log_level: Level) -> (TcpListener, RouterWithIP) {
             .on_response(res_span)
     };
 
-    let router = Router::new()
-        .route("/", get(handler::index))
-        .route("/idempotency", post(handler::idempotency::core))
-        .route("/rate-limiter", get(handler::ratelimiter::core))
+    let mut router = Router::new()
+        .route("/", get(index))
+        .route("/idempotency", post(idempotency::core))
+        .route("/rate-limiter", get(ratelimiter::core));
+
+    #[cfg(debug_assertions)]
+    {
+        let internal_routes = {
+            let routes = Router::new().nest("/idempotency", idempotency::internal::routes());
+            Router::new().nest("/internal", routes)
+        };
+
+        router = router.merge(internal_routes);
+    }
+
+    let router = router
         .layer(middleware)
         .layer(tracing)
         .with_state(state)

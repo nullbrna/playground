@@ -44,8 +44,8 @@ pub async fn core(
 
     info!("[RATE_LIMITER] {limiter_key} has requested {count} time(s)");
     if count == 1 {
-        Ok((StatusCode::OK, "LIMIT_FIRST"))
-    } else {
-        Ok((StatusCode::OK, "LIMIT_ONGOING"))
+        return Ok((StatusCode::OK, "LIMIT_FIRST"));
     }
+
+    Ok((StatusCode::OK, "LIMIT_ONGOING"))
 }
