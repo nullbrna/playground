@@ -73,29 +73,3 @@ async fn insert_status_by_key(pool: &PgPool, key: &str) -> HandlerResult<()> {
 
     Ok(())
 }
-
-#[cfg(debug_assertions)]
-pub mod internal {
-    use axum::Router;
-    use axum::extract::State;
-    use axum::http::StatusCode;
-    use axum::response::IntoResponse;
-    use axum::routing::post;
-    use sqlx::query;
-
-    use crate::AppState;
-    use crate::handler::HandlerResult;
-
-    pub fn routes() -> Router<AppState> {
-        Router::new().route("/", post(clear))
-    }
-
-    pub async fn clear(State(state): State<AppState>) -> HandlerResult<impl IntoResponse> {
-        let statement = r#"
-            TRUNCATE TABLE idempotency
-        "#;
-
-        query(statement).execute(&state.pool).await?;
-        Ok(StatusCode::OK)
-    }
-}

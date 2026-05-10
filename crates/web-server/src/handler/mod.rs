@@ -53,14 +53,14 @@ impl From<redis::RedisError> for HandlerError {
 }
 
 pub async fn middleware(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     request: Request,
     next: Next,
 ) -> HandlerResult<impl IntoResponse> {
-    info!("[MIDDLEWARE] hit: {state:?}");
+    info!("[MIDDLEWARE] hit");
     Ok(next.run(request).await)
 }
 
-pub async fn index(State(state): State<AppState>) -> HandlerResult<impl IntoResponse> {
-    Ok(format!("Hello, world! - {:?}", state))
+pub async fn index(State(_state): State<AppState>) -> HandlerResult<impl IntoResponse> {
+    Ok("Hello, world!")
 }

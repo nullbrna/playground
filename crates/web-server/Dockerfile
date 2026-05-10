@@ -12,7 +12,7 @@ COPY src    ./src
 
 RUN cargo install cargo-watch
 
-# Restart buffer watcher through non-zero exit codes.
+# Restart file watcher through non-zero exit codes.
 CMD ["sh", "-c", "while true; do cargo watch -x run; sleep 1; done"]
 
 ###############

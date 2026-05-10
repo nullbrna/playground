@@ -29,6 +29,5 @@ services:
             - DATABASE_URL=postgres://admin:password@database:5432/playground
             - REDIS_URL=redis://redis:6379
         volumes:
-            # Mount the source & test files for hot-reloading.
+            # Mount source files for hot-reloading.
             - ./src:/app/src
-            - ./tests:/app/tests

@@ -2666,7 +2666,6 @@ dependencies = [
  "axum-extra",
  "redis",
  "reqwest",
- "serde_json",
  "sqlx",
  "tokio",
  "tower-http",
