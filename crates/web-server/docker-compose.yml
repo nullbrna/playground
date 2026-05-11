@@ -7,10 +7,6 @@ services:
             - POSTGRES_USER=admin
             - POSTGRES_PASSWORD=password
             - POSTGRES_DB=playground
-        volumes:
-            # Script to run when DB is ready & open for connection. Only runs
-            # when the top-level volume is empty.
-            - ./setup/seed.sql:/docker-entrypoint-initdb.d/init_seed.sql
 
     redis:
         image: redis:7-alpine
@@ -31,3 +27,6 @@ services:
         volumes:
             # Mount source files for hot-reloading.
             - ./src:/app/src
+            # Tests seed their unique SQL schema with migrations. The scripts
+            # are needed when running tests within the container.
+            - ./migrations:/app/migrations

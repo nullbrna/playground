@@ -6,9 +6,8 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.102"
 axum = "0.8.9"
-axum-extra = "0.12.6"
 redis = { version = "1.2.1", features = ["connection-manager", "tokio-comp"] }
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls"] }
+sqlx = { version = "0.8.6", features = ["migrate", "postgres", "runtime-tokio-rustls"] }
 tokio = { version = "1.52.1", features = ["rt-multi-thread"] }
 tower-http = { version = "0.6.8", features = ["trace"] }
 tracing = "0.1.44"
