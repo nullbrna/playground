@@ -68,7 +68,6 @@ impl HandlerState {
     pub async fn new() -> anyhow::Result<Self> {
         let pool = {
             let resource = std::env::var("DATABASE_URL")?;
-
             PgPoolOptions::new()
                 .max_connections(10)
                 .connect(&resource)
@@ -90,23 +89,27 @@ impl HandlerState {
         use sqlx::migrate;
         use sqlx::query;
 
-        // Acquire ONE connection to ensure schema creation, path setting, and
-        // migration run in the same context.
-        let mut conn = self.pool.acquire().await?;
+        // 1. Acquire a connection to ensure the default schema path change will
+        // rollback on failure to be safe.
+        // NOTE: Connection is dropped on return.
+        let mut tx = self.pool.begin().await?;
 
-        // Each test generates a unique identifier used for its dedicated SQL
-        // schema and any related test resource.
+        // 2. Each test generates a unique identifier used for its dedicated SQL
+        // schema and any related test resource. This identifier will become the
+        // dedicated test data schema.
         let statement = format!(r#"CREATE SCHEMA IF NOT EXISTS "{}""#, identifier);
-        query(&statement).execute(&mut *conn).await?;
+        query(&statement).execute(&mut *tx).await?;
 
-        // Before running the migration scripts to initialise the tables; point
-        // to the newly created schema.
-        let statement = format!(r#"SET search_path TO "{}""#, identifier);
-        query(&statement).execute(&mut *conn).await?;
+        // 3. Prepare for the migration scripts by configuring them to write to
+        // the above created schema.
+        // NOTE: Handlers use the identifier to query the schema directly.
+        let statement = format!(r#"SET LOCAL search_path TO "{}""#, identifier);
+        query(&statement).execute(&mut *tx).await?;
 
-        migrate!().run(&mut *conn).await?;
-        // NOT necessary but reset the connections schema back to default.
-        query("RESET search_path").execute(&mut *conn).await?;
+        // 4. Run the migration scripts against the transaction-default schema
+        // to initialise the table layout.
+        migrate!().run(&mut *tx).await?;
+        tx.commit().await?;
 
         Ok(())
     }
