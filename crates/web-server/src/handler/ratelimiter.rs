@@ -53,65 +53,63 @@ pub async fn core(
 
 #[cfg(test)]
 mod tests {
-    use crate::handler::TEST_ID_HEADER;
+    use crate::handler::HandlerState;
+    use crate::handler::TEST_ID_HEADER_KEY;
+    use crate::handler::ratelimiter::FIRST_TEXT;
+    use crate::handler::ratelimiter::LIMIT_COUNT;
+    use crate::handler::ratelimiter::ONGOING_TEXT;
 
-    use super::*;
-
+    use axum::http::StatusCode;
     use reqwest::Client;
     use reqwest::Response;
-    use uuid::Uuid;
 
     const ENDPOINT: &str = "http://localhost:8080/rate-limiter";
 
-    async fn setup() -> String {
-        let app = HandlerState::new().await.unwrap();
-        let identifier = Uuid::new_v4().to_string();
-
-        app.new_unique_test_schema(&identifier).await.unwrap();
-        identifier
-    }
-
-    async fn make_request(identifier: &str) -> Response {
+    async fn make_request(identifier: &str) -> anyhow::Result<Response> {
         Client::new()
             .get(ENDPOINT)
-            .header(TEST_ID_HEADER, identifier)
+            .header(TEST_ID_HEADER_KEY, identifier)
             .send()
             .await
-            .unwrap()
+            .map_err(anyhow::Error::from)
     }
 
     #[tokio::test]
-    async fn should_200_initialise_cache() {
-        let identifier = setup().await;
-
-        let response = make_request(&identifier).await;
+    async fn should_200_initialise_cache() -> anyhow::Result<()> {
+        let identifier = HandlerState::test_state_setup().await?;
+        let response = make_request(&identifier).await?;
 
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response.text().await.unwrap(), FIRST_TEXT);
+        assert_eq!(response.text().await?, FIRST_TEXT);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_200_ongoing_increment() {
-        let identifier = setup().await;
+    async fn should_200_ongoing_increment() -> anyhow::Result<()> {
+        let identifier = HandlerState::test_state_setup().await?;
 
-        make_request(&identifier).await;
+        make_request(&identifier).await?;
         for _ in 0..LIMIT_COUNT - 1 {
-            let response = make_request(&identifier).await;
+            let response = make_request(&identifier).await?;
 
             assert_eq!(response.status(), StatusCode::OK);
-            assert_eq!(response.text().await.unwrap(), ONGOING_TEXT);
+            assert_eq!(response.text().await?, ONGOING_TEXT);
         }
+
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_429_over_limit() {
-        let identifier = setup().await;
+    async fn should_429_over_limit() -> anyhow::Result<()> {
+        let identifier = HandlerState::test_state_setup().await?;
 
         for _ in 0..LIMIT_COUNT {
-            make_request(&identifier).await;
+            make_request(&identifier).await?;
         }
 
-        let response = make_request(&identifier).await;
+        let response = make_request(&identifier).await?;
+
         assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+        Ok(())
     }
 }

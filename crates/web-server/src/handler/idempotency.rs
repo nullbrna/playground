@@ -56,7 +56,7 @@ async fn find_status_by_key(
         FROM "{}".idempotency
         WHERE key = $1
         AND NOW() < expires_at
-    "#,
+        "#,
         identifier
     );
 
@@ -68,13 +68,12 @@ async fn find_status_by_key(
 }
 
 async fn insert_status_by_key(pool: &PgPool, identifier: &str, key: &str) -> HandlerResult<()> {
-    // NOTE: Added keys are NOT purged on expiry. The behaviour is mocked by
-    // selecting rows where the expiry is in the past.
+    // NOTE: Added keys are NOT purged on expiry.
     let statement = format!(
         r#"
         INSERT INTO "{}".idempotency (key, status, expires_at)
         VALUES ($1, $2, NOW() + MAKE_INTERVAL(SECS => $3))
-    "#,
+        "#,
         identifier
     );
 
@@ -90,66 +89,60 @@ async fn insert_status_by_key(pool: &PgPool, identifier: &str, key: &str) -> Han
 
 #[cfg(test)]
 mod tests {
-    use crate::handler::TEST_ID_HEADER;
+    use crate::handler::HandlerState;
+    use crate::handler::TEST_ID_HEADER_KEY;
+    use crate::handler::idempotency::HIT_TEXT;
+    use crate::handler::idempotency::IDEMPOTENCY_HEADER_KEY;
+    use crate::handler::idempotency::MISS_TEXT;
 
-    use super::*;
-
+    use axum::http::StatusCode;
     use reqwest::Client;
     use reqwest::Response;
-    use uuid::Uuid;
 
     const ENDPOINT: &str = "http://localhost:8080/idempotency";
 
-    async fn setup() -> String {
-        let app = HandlerState::new().await.unwrap();
-        let identifier = Uuid::new_v4().to_string();
-
-        app.new_unique_test_schema(&identifier).await.unwrap();
-        identifier
-    }
-
-    async fn make_request(identifier: &str) -> Response {
+    async fn make_request(identifier: &str) -> anyhow::Result<Response> {
         Client::new()
             .post(ENDPOINT)
-            .header(TEST_ID_HEADER, identifier)
+            .header(TEST_ID_HEADER_KEY, identifier)
             .header(IDEMPOTENCY_HEADER_KEY, "foo")
             .send()
             .await
-            .unwrap()
+            .map_err(anyhow::Error::from)
     }
 
     #[tokio::test]
-    async fn should_400_without_header() {
-        let identifier = setup().await;
-
+    async fn should_400_without_header() -> anyhow::Result<()> {
+        let identifier = HandlerState::test_state_setup().await?;
         let response = Client::new()
             .post(ENDPOINT)
-            .header(TEST_ID_HEADER, identifier)
+            .header(TEST_ID_HEADER_KEY, identifier)
             .send()
-            .await
-            .unwrap();
+            .await?;
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_201_miss_on_first_request() {
-        let identifier = setup().await;
-
-        let response = make_request(&identifier).await;
+    async fn should_201_miss_on_first_request() -> anyhow::Result<()> {
+        let identifier = HandlerState::test_state_setup().await?;
+        let response = make_request(&identifier).await?;
 
         assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response.text().await.unwrap(), MISS_TEXT);
+        assert_eq!(response.text().await?, MISS_TEXT);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn should_201_hit_on_repeated_request() {
-        let identifier = setup().await;
+    async fn should_201_hit_on_repeated_request() -> anyhow::Result<()> {
+        let identifier = HandlerState::test_state_setup().await?;
 
-        make_request(&identifier).await;
-        let response = make_request(&identifier).await;
+        make_request(&identifier).await?;
+        let response = make_request(&identifier).await?;
 
         assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response.text().await.unwrap(), HIT_TEXT);
+        assert_eq!(response.text().await?, HIT_TEXT);
+        Ok(())
     }
 }

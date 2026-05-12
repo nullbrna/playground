@@ -13,7 +13,7 @@ pub mod idempotency;
 pub mod ratelimiter;
 
 #[cfg(debug_assertions)]
-const TEST_ID_HEADER: &str = "X-Test-Identifier";
+const TEST_ID_HEADER_KEY: &str = "X-Test-Identifier";
 
 pub struct HandlerError(StatusCode);
 type HandlerResult<T> = Result<T, HandlerError>;
@@ -66,52 +66,46 @@ pub struct HandlerState {
 
 impl HandlerState {
     pub async fn new() -> anyhow::Result<Self> {
-        let pool = {
-            let resource = std::env::var("DATABASE_URL")?;
-            PgPoolOptions::new()
-                .max_connections(10)
-                .connect(&resource)
-                .await?
-        };
+        let database_resource = std::env::var("DATABASE_URL")?;
+        let redis_resource = std::env::var("REDIS_URL")?;
 
-        let redis = {
-            let resource = std::env::var("REDIS_URL")?;
-            let client = Client::open(resource)?;
+        // Tests use a dedicated single-connection pool as each test creates
+        // their own state. Once the schema is created, the connection is free.
+        let connection_count = if cfg!(debug_assertions) { 1 } else { 10 };
+        let pool = PgPoolOptions::new()
+            .max_connections(connection_count)
+            .connect(&database_resource)
+            .await?;
 
-            ConnectionManager::new(client).await?
-        };
+        let client = Client::open(redis_resource)?;
+        let redis = ConnectionManager::new(client).await?;
 
         Ok(Self { pool, redis })
     }
 
     #[cfg(test)]
-    async fn new_unique_test_schema(&self, identifier: &str) -> anyhow::Result<()> {
+    async fn test_state_setup() -> anyhow::Result<String> {
         use sqlx::migrate;
         use sqlx::query;
+        use uuid::Uuid;
 
-        // 1. Acquire a connection to ensure the default schema path change will
-        // rollback on failure to be safe.
-        // NOTE: Connection is dropped on return.
-        let mut tx = self.pool.begin().await?;
+        let state = Self::new().await?;
+        let identifier = Uuid::new_v4().to_string();
 
-        // 2. Each test generates a unique identifier used for its dedicated SQL
-        // schema and any related test resource. This identifier will become the
-        // dedicated test data schema.
-        let statement = format!(r#"CREATE SCHEMA IF NOT EXISTS "{}""#, identifier);
-        query(&statement).execute(&mut *tx).await?;
+        // 1. Create an isolated schema for the current test by the unique ID.
+        let statement = format!("CREATE SCHEMA IF NOT EXISTS \"{}\"", identifier);
+        query(&statement).execute(&state.pool).await?;
 
-        // 3. Prepare for the migration scripts by configuring them to write to
-        // the above created schema.
-        // NOTE: Handlers use the identifier to query the schema directly.
-        let statement = format!(r#"SET LOCAL search_path TO "{}""#, identifier);
-        query(&statement).execute(&mut *tx).await?;
+        // 2. Pin all subsequent queries on this single connection to the
+        // test-specific schema.
+        let statement = format!("SET search_path TO \"{}\"", identifier);
+        query(&statement).execute(&state.pool).await?;
 
-        // 4. Run the migration scripts against the transaction-default schema
-        // to initialise the table layout.
-        migrate!().run(&mut *tx).await?;
-        tx.commit().await?;
+        // 3. Because of the above SET command, apply migrations into the test
+        // schema without needing to specify in-script.
+        migrate!().run(&state.pool).await?;
 
-        Ok(())
+        Ok(identifier)
     }
 }
 
@@ -120,26 +114,18 @@ pub async fn middleware(
     mut request: Request,
     next: Next,
 ) -> HandlerResult<impl IntoResponse> {
-    #[cfg(not(debug_assertions))]
-    {
-        let identifier = String::from("public");
-        request.extensions_mut().insert(identifier);
+    let mut identifier = String::from("public");
 
-        return Ok(next.run(request).await);
+    // Extract the per-test generated ID. The handlers use this to query test
+    // schemas, write & read test keys etc. for test runs.
+    if cfg!(debug_assertions)
+        && let Some(header) = headers.get(TEST_ID_HEADER_KEY)
+        && let Ok(header_value) = header.to_str()
+    {
+        identifier = String::from(header_value);
     }
 
-    // Extract the per-test ID matching a set-up schema. Pass along to the
-    // handlers to query that tests unique data.
-    if let Some(header) = headers.get(TEST_ID_HEADER)
-        && let Ok(identifier) = header.to_str().map(String::from)
-    {
-        request.extensions_mut().insert(identifier);
-        return Ok(next.run(request).await);
-    }
-
-    let identifier = String::from("local");
     request.extensions_mut().insert(identifier);
-
     Ok(next.run(request).await)
 }
 
