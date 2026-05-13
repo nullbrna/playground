@@ -76,7 +76,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_200_initialise_cache() -> anyhow::Result<()> {
-        let identifier = HandlerState::test_state_setup().await?;
+        let identifier = HandlerState::setup_test_state().await?;
         let response = make_request(&identifier).await?;
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -86,7 +86,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_200_ongoing_increment() -> anyhow::Result<()> {
-        let identifier = HandlerState::test_state_setup().await?;
+        let identifier = HandlerState::setup_test_state().await?;
 
         make_request(&identifier).await?;
         for _ in 0..LIMIT_COUNT - 1 {
@@ -101,7 +101,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_429_over_limit() -> anyhow::Result<()> {
-        let identifier = HandlerState::test_state_setup().await?;
+        let identifier = HandlerState::setup_test_state().await?;
 
         for _ in 0..LIMIT_COUNT {
             make_request(&identifier).await?;

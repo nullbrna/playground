@@ -113,7 +113,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_400_without_header() -> anyhow::Result<()> {
-        let identifier = HandlerState::test_state_setup().await?;
+        let identifier = HandlerState::setup_test_state().await?;
         let response = Client::new()
             .post(ENDPOINT)
             .header(TEST_ID_HEADER_KEY, identifier)
@@ -126,7 +126,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_201_miss_on_first_request() -> anyhow::Result<()> {
-        let identifier = HandlerState::test_state_setup().await?;
+        let identifier = HandlerState::setup_test_state().await?;
         let response = make_request(&identifier).await?;
 
         assert_eq!(response.status(), StatusCode::CREATED);
@@ -136,7 +136,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_201_hit_on_repeated_request() -> anyhow::Result<()> {
-        let identifier = HandlerState::test_state_setup().await?;
+        let identifier = HandlerState::setup_test_state().await?;
 
         make_request(&identifier).await?;
         let response = make_request(&identifier).await?;

@@ -17,6 +17,11 @@ tracing-subscriber = "0.3.23"
 reqwest = { version = "0.13.3", features = ["json", "rustls"] }
 uuid = { version = "1.23.1", features = ["v4"] }
 
+[features]
+# As tests run against a running app, the test flag isn't set. A custom feature
+# enables the equivalent control of test-only logic.
+testing = []
+
 # [profile.release]
 # opt-level = 3
 # strip = true

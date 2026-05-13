@@ -12,10 +12,13 @@ use crate::handler::HandlerState;
 
 mod handler;
 
-fn initialise_logger() {
-    let env_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| String::from("DEBUG"));
-    let level = Level::from_str(&env_level).unwrap_or(Level::DEBUG);
+fn setup_environment() -> String {
+    let env_level = {
+        let default = String::from("DEBUG");
+        std::env::var("LOG_LEVEL").unwrap_or(default)
+    };
 
+    let level = Level::from_str(&env_level).unwrap_or(Level::DEBUG);
     tracing_subscriber::fmt()
         .with_max_level(level)
         .with_target(false)
@@ -23,18 +26,18 @@ fn initialise_logger() {
         .init();
 
     tracing::info!("logging level: {level}");
-}
+    let port = {
+        let default = String::from("8080");
+        std::env::var("PORT").unwrap_or(default)
+    };
 
-fn build_address() -> String {
-    let port = std::env::var("PORT").unwrap_or_else(|_| String::from("8080"));
     format!("0.0.0.0:{port}")
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    initialise_logger();
+    let host = setup_environment();
 
-    let host = build_address();
     let listener = TcpListener::bind(&host).await?;
     let state = HandlerState::new().await?;
 

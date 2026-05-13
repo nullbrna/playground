@@ -12,8 +12,10 @@ COPY src    ./src
 
 RUN cargo install cargo-watch
 
-# Restart file watcher through non-zero exit codes.
-CMD ["sh", "-c", "while true; do cargo watch -x run; sleep 1; done"]
+ENV MODE=local
+
+# Add the feature for test-only logic if needed; run with hot-reloading.
+CMD ["sh", "-c", "if [ \"$MODE\" = \"testing\" ]; then cargo watch -x 'run --features testing'; else cargo watch -x run; fi"]
 
 ###############
 # Production  #

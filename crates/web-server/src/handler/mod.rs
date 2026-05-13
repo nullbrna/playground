@@ -1,4 +1,5 @@
 use axum::extract::Request;
+#[cfg(feature = "testing")]
 use axum::http::HeaderMap;
 use axum::http::StatusCode;
 use axum::middleware::Next;
@@ -12,7 +13,7 @@ use sqlx::postgres::PgPoolOptions;
 pub mod idempotency;
 pub mod ratelimiter;
 
-#[cfg(debug_assertions)]
+#[cfg(any(feature = "testing", test))]
 const TEST_ID_HEADER_KEY: &str = "X-Test-Identifier";
 
 pub struct HandlerError(StatusCode);
@@ -71,7 +72,7 @@ impl HandlerState {
 
         // Tests use a dedicated single-connection pool as each test creates
         // their own state. Once the schema is created, the connection is free.
-        let connection_count = if cfg!(debug_assertions) { 1 } else { 10 };
+        let connection_count = if cfg!(test) { 1 } else { 10 };
         let pool = PgPoolOptions::new()
             .max_connections(connection_count)
             .connect(&database_resource)
@@ -84,7 +85,7 @@ impl HandlerState {
     }
 
     #[cfg(test)]
-    async fn test_state_setup() -> anyhow::Result<String> {
+    async fn setup_test_state() -> anyhow::Result<String> {
         use sqlx::migrate;
         use sqlx::query;
         use uuid::Uuid;
@@ -110,22 +111,25 @@ impl HandlerState {
 }
 
 pub async fn middleware(
-    headers: HeaderMap,
+    #[cfg(feature = "testing")] headers: HeaderMap,
     mut request: Request,
     next: Next,
 ) -> HandlerResult<impl IntoResponse> {
-    let mut identifier = String::from("public");
-
     // Extract the per-test generated ID. The handlers use this to query test
     // schemas, write & read test keys etc. for test runs.
-    if cfg!(debug_assertions)
-        && let Some(header) = headers.get(TEST_ID_HEADER_KEY)
+    #[cfg(feature = "testing")]
+    if let Some(header) = headers.get(TEST_ID_HEADER_KEY)
         && let Ok(header_value) = header.to_str()
     {
-        identifier = String::from(header_value);
+        let identifier = String::from(header_value);
+        request.extensions_mut().insert(identifier);
+
+        return Ok(next.run(request).await);
     }
 
+    let identifier = String::from("public");
     request.extensions_mut().insert(identifier);
+
     Ok(next.run(request).await)
 }
 
