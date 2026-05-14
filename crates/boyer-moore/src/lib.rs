@@ -1,7 +1,7 @@
 /// Find the first occurrence of a `pattern` within a string using the BM
 /// (Boyer-Moore) algorithm.
 ///
-/// Compare characters right-to-left, using the Bad Character rule; mismatches
+/// Compare characters right-to-left, using the Bad Character rule. Mismatches
 /// allow for the iterator to skip forward based on the last occurrence of said
 /// mismatch within `pattern`.
 #[allow(unused)]

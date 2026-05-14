@@ -9,6 +9,7 @@ use redis::Client;
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
+use tracing::warn;
 
 pub mod idempotency;
 pub mod ratelimiter;
@@ -34,7 +35,10 @@ impl From<StatusCode> for HandlerError {
 impl From<sqlx::Error> for HandlerError {
     fn from(value: sqlx::Error) -> Self {
         if matches!(value, sqlx::Error::RowNotFound) {
-            return Self(StatusCode::NOT_FOUND);
+            // Ideally, empty data should be handled in-handler. Log if the
+            // error manages to bubble up to the response.
+            warn!("[DATABASE] Unhandled empty response");
+            return Self(StatusCode::OK);
         }
 
         tracing::error!("[DATABASE] {value}");
@@ -70,8 +74,8 @@ impl HandlerState {
         let database_resource = std::env::var("DATABASE_URL")?;
         let redis_resource = std::env::var("REDIS_URL")?;
 
-        // Tests use a dedicated single-connection pool as each test creates
-        // their own state. Once the schema is created, the connection is free.
+        // Tests need a dedicated connection, as tests run in parallel, each
+        // schema setup could overwrite the search path creating data races.
         let connection_count = if cfg!(test) { 1 } else { 10 };
         let pool = PgPoolOptions::new()
             .max_connections(connection_count)
@@ -85,9 +89,7 @@ impl HandlerState {
     }
 
     #[cfg(test)]
-    async fn setup_test_state() -> anyhow::Result<String> {
-        use sqlx::migrate;
-        use sqlx::query;
+    async fn setup_for_test() -> anyhow::Result<String> {
         use uuid::Uuid;
 
         let state = Self::new().await?;
@@ -95,16 +97,14 @@ impl HandlerState {
 
         // 1. Create an isolated schema for the current test by the unique ID.
         let statement = format!("CREATE SCHEMA IF NOT EXISTS \"{}\"", identifier);
-        query(&statement).execute(&state.pool).await?;
+        sqlx::query(&statement).execute(&state.pool).await?;
 
-        // 2. Pin all subsequent queries on this single connection to the
-        // test-specific schema.
+        // 2. Pin all subsequent queries to the schema.
         let statement = format!("SET search_path TO \"{}\"", identifier);
-        query(&statement).execute(&state.pool).await?;
+        sqlx::query(&statement).execute(&state.pool).await?;
 
-        // 3. Because of the above SET command, apply migrations into the test
-        // schema without needing to specify in-script.
-        migrate!().run(&state.pool).await?;
+        // 3. Apply migrations into the schema.
+        sqlx::migrate!().run(&state.pool).await?;
 
         Ok(identifier)
     }
@@ -115,8 +115,6 @@ pub async fn middleware(
     mut request: Request,
     next: Next,
 ) -> HandlerResult<impl IntoResponse> {
-    // Extract the per-test generated ID. The handlers use this to query test
-    // schemas, write & read test keys etc. for test runs.
     #[cfg(feature = "testing")]
     if let Some(header) = headers.get(TEST_ID_HEADER_KEY)
         && let Ok(header_value) = header.to_str()

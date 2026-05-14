@@ -30,7 +30,7 @@ pub async fn core(
     // Patterns for rate-limiting & counting requests:
     // 1. Fixed: Time buckets e.g. per 60 seconds
     // 2. Sliding: Moving buckets e.g. last 60 seconds from now
-    // 3. Rolling/Token Bucket: Each request uses a token, refills over time
+    // 3. Rolling/Token Bucket: Each request uses a token & refills over time
     let (count, _): (i64, i32) = redis::pipe()
         .atomic()
         .incr(&limiter_key, 1)
@@ -76,7 +76,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_200_initialise_cache() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_test_state().await?;
+        let identifier = HandlerState::setup_for_test().await?;
         let response = make_request(&identifier).await?;
 
         assert_eq!(response.status(), StatusCode::OK);
@@ -86,7 +86,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_200_ongoing_increment() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_test_state().await?;
+        let identifier = HandlerState::setup_for_test().await?;
 
         make_request(&identifier).await?;
         for _ in 0..LIMIT_COUNT - 1 {
@@ -101,14 +101,13 @@ mod tests {
 
     #[tokio::test]
     async fn should_429_over_limit() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_test_state().await?;
+        let identifier = HandlerState::setup_for_test().await?;
 
         for _ in 0..LIMIT_COUNT {
             make_request(&identifier).await?;
         }
 
         let response = make_request(&identifier).await?;
-
         assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
         Ok(())
     }

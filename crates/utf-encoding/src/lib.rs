@@ -1,6 +1,6 @@
 // UTF-8 (Unicode Transformation Format)
 //
-// 0xxxxxxx - Single ASCII character (fits in 128 bits; MSB is zero)
+// 0xxxxxxx - Single ASCII character (fits in 128 bits. MSB is zero)
 // 110xxxxx 10xxxxxx - 2-byte character (latin-1) e.g. ñ
 // 1110xxxx 10xxxxxx 10xxxxxx - 3-byte character e.g. €
 // 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx - 4-byte character e.g. 😀

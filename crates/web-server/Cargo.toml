@@ -21,8 +21,3 @@ uuid = { version = "1.23.1", features = ["v4"] }
 # As tests run against a running app, the test flag isn't set. A custom feature
 # enables the equivalent control of test-only logic.
 testing = []
-
-# [profile.release]
-# opt-level = 3
-# strip = true
-# lto = true
