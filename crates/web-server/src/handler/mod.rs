@@ -9,7 +9,6 @@ use redis::Client;
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
-use tracing::warn;
 
 pub mod idempotency;
 pub mod ratelimiter;
@@ -37,7 +36,7 @@ impl From<sqlx::Error> for HandlerError {
         if matches!(value, sqlx::Error::RowNotFound) {
             // Ideally, empty data should be handled in-handler. Log if the
             // error manages to bubble up to the response.
-            warn!("[DATABASE] Unhandled empty response");
+            tracing::warn!("[DATABASE] Unhandled empty response");
             return Self(StatusCode::OK);
         }
 
