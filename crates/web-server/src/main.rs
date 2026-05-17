@@ -25,7 +25,7 @@ fn setup_environment() -> String {
         .compact()
         .init();
 
-    tracing::info!("logging level: {level}");
+    tracing::info!("Logging: {level}");
     let port = {
         let default = String::from("8080");
         std::env::var("PORT").unwrap_or(default)
@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
         // Allows for reading the request IP through an extension.
         .into_make_service_with_connect_info::<SocketAddr>();
 
-    tracing::info!("starting: {host}");
+    tracing::info!("Starting: {host}");
     axum::serve(listener, router).await?;
 
     Ok(())

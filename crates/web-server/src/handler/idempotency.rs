@@ -33,14 +33,14 @@ pub async fn core(
         let decoded_status = u16::try_from(cached_status).map_err(anyhow::Error::from)?;
         let status_code = StatusCode::from_u16(decoded_status).map_err(anyhow::Error::from)?;
 
-        tracing::info!("[IDEMPOTENCY] cache hit: {key}");
+        tracing::info!("[IDEMPOTENCY] Cache hit: {key}");
         return Ok((status_code, HIT_TEXT));
     };
 
     // At this point, we haven't got the key cached so set a fresh one. Best to
     // perform any read/write operations AFTER this has successfully run.
     insert_status_by_key(&state.pool, &identifier, key).await?;
-    tracing::info!("[IDEMPOTENCY] cache miss: {key}");
+    tracing::info!("[IDEMPOTENCY] Cache miss: {key}");
 
     Ok((StatusCode::CREATED, MISS_TEXT))
 }

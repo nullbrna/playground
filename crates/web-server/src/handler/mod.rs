@@ -34,8 +34,6 @@ impl From<StatusCode> for HandlerError {
 impl From<sqlx::Error> for HandlerError {
     fn from(value: sqlx::Error) -> Self {
         if matches!(value, sqlx::Error::RowNotFound) {
-            // Ideally, empty data should be handled in-handler. Log if the
-            // error manages to bubble up to the response.
             tracing::warn!("[DATABASE] Unhandled empty response");
             return Self(StatusCode::OK);
         }
@@ -73,8 +71,8 @@ impl HandlerState {
         let database_resource = std::env::var("DATABASE_URL")?;
         let redis_resource = std::env::var("REDIS_URL")?;
 
-        // Tests need a dedicated connection, as tests run in parallel, each
-        // schema setup could overwrite the search path creating data races.
+        // Tests need a dedicated connection. Tests run in parallel so each
+        // schema setup could overwrite the search path & create data races.
         let connection_count = if cfg!(test) { 1 } else { 10 };
         let pool = PgPoolOptions::new()
             .max_connections(connection_count)
