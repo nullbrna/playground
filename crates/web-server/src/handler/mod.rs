@@ -31,6 +31,13 @@ impl From<StatusCode> for HandlerError {
     }
 }
 
+impl From<anyhow::Error> for HandlerError {
+    fn from(value: anyhow::Error) -> Self {
+        tracing::error!("[UNEXPECTED] {value}");
+        Self(StatusCode::INTERNAL_SERVER_ERROR)
+    }
+}
+
 impl From<sqlx::Error> for HandlerError {
     fn from(value: sqlx::Error) -> Self {
         if matches!(value, sqlx::Error::RowNotFound) {
@@ -39,13 +46,6 @@ impl From<sqlx::Error> for HandlerError {
         }
 
         tracing::error!("[DATABASE] {value}");
-        Self(StatusCode::INTERNAL_SERVER_ERROR)
-    }
-}
-
-impl From<anyhow::Error> for HandlerError {
-    fn from(value: anyhow::Error) -> Self {
-        tracing::error!("[UNEXPECTED] {value}");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }

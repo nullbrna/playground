@@ -13,10 +13,8 @@ use crate::handler::HandlerState;
 mod handler;
 
 fn setup_environment() -> String {
-    let env_level = {
-        let default = String::from("DEBUG");
-        std::env::var("LOG_LEVEL").unwrap_or(default)
-    };
+    let env_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| String::from("DEBUG"));
+    let port = std::env::var("PORT").unwrap_or_else(|_| String::from("8080"));
 
     let level = Level::from_str(&env_level).unwrap_or(Level::DEBUG);
     tracing_subscriber::fmt()
@@ -26,11 +24,6 @@ fn setup_environment() -> String {
         .init();
 
     tracing::info!("Logging: {level}");
-    let port = {
-        let default = String::from("8080");
-        std::env::var("PORT").unwrap_or(default)
-    };
-
     format!("0.0.0.0:{port}")
 }
 

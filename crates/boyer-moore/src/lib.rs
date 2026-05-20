@@ -1,9 +1,10 @@
-/// Find the first occurrence of a `pattern` within a string using the BM
-/// (Boyer-Moore) algorithm.
-///
-/// Compare characters right-to-left, using the Bad Character rule. Mismatches
-/// allow for the iterator to skip forward based on the last occurrence of said
-/// mismatch within `pattern`.
+// Find the first occurrence of a `pattern` within a string using the BM
+// (Boyer-Moore) algorithm.
+//
+// Compare characters right-to-left, using the Bad Character rule. Mismatches
+// allow for the iterator to skip forward based on the last occurrence of said
+// mismatch within a pattern.
+
 #[allow(unused)]
 fn bm_search(source: &str, pattern: &str) -> Option<usize> {
     let source = source.as_bytes();

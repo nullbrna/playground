@@ -1,8 +1,9 @@
-/// Compute the LPS (Longest Prefix Suffix) array for a given pattern.
-///
-/// Find the pattern with both a prefix and a suffix, storing the length of
-/// full/partial matches. The length of the returned LPS array is equal to the
-/// length of `pattern`.
+// Compute the LPS (Longest Prefix Suffix) array for a given pattern.
+//
+// Find the pattern with both a prefix and a suffix, storing the length of
+// full/partial matches. The length of the calculated LPS array is equal to the
+// length of the input pattern.
+
 #[allow(unused)]
 fn kmp_failure_function(pattern: &[u8]) -> Vec<usize> {
     let pattern_length = pattern.len();
@@ -37,10 +38,6 @@ fn kmp_failure_function(pattern: &[u8]) -> Vec<usize> {
     lps
 }
 
-/// Find the starting index of a matched pattern.
-///
-/// Use a failure function to iterate over the `source` comparing to the
-/// corresponding `pattern` without double-checking segments.
 #[allow(unused)]
 fn kmp_search(source: &str, pattern: &str) -> Option<usize> {
     if source.is_empty() {

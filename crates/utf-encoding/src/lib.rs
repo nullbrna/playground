@@ -8,10 +8,6 @@
 // The payload (code point) of each UTF-8 character can be classified as the
 // non-metadata bits i.e. all BUT the leading length and continuation bits.
 
-/// Using each characters leading byte, determine the total count of UTF-8
-/// bytes.
-/// NOTE: Rust validates a string reference as UTF-8 at compile-time so this is
-/// technically redundant.
 #[allow(unused)]
 fn raw_length(source: &str) -> usize {
     let bytes = source.as_bytes();
@@ -19,6 +15,7 @@ fn raw_length(source: &str) -> usize {
     let mut count = 0;
     let mut index = 0;
 
+    // Using the leading byte, determine the total count of UTF-8 bytes.
     while let Some(byte) = bytes.get(index) {
         // Restrict ambiguous checks by validating the extra bit is explicitly
         // turned off e.g. 2-byte strings get a mask of 11100000.
@@ -37,13 +34,12 @@ fn raw_length(source: &str) -> usize {
     count
 }
 
-/// For non-single byte UTF-8 strings, check the following continuation bytes
-/// for a valid format.
 #[allow(unused)]
 fn is_valid(source: &str) -> bool {
     let bytes = source.as_bytes();
 
     let mut index = 0;
+    // Check the following continuation bytes for a valid format.
     while let Some(byte) = bytes.get(index) {
         let length = match byte {
             value if value & 0b1000_0000 == 0b0000_0000 => 1,
