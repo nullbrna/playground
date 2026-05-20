@@ -79,6 +79,8 @@ impl HandlerState {
             .connect(&database_resource)
             .await?;
 
+        sqlx::migrate!().run(&pool).await?;
+
         let client = Client::open(redis_resource)?;
         let redis = ConnectionManager::new(client).await?;
 
