@@ -39,7 +39,6 @@ fn is_valid(source: &str) -> bool {
     let bytes = source.as_bytes();
 
     let mut index = 0;
-    // Check the following continuation bytes for a valid format.
     while let Some(byte) = bytes.get(index) {
         let length = match byte {
             value if value & 0b1000_0000 == 0b0000_0000 => 1,
@@ -49,15 +48,17 @@ fn is_valid(source: &str) -> bool {
             _ => return false,
         };
 
-        // Using the above length, check the next bytes ensuring they're
-        // prefixed with 10.
-        for offset in 1..length {
-            let check = |source| source & 0b1100_0000 != 0b1000_0000;
-            let is_invalid = bytes.get(index + offset).is_some_and(check);
+        let Some(remaining) = bytes.get(index + 1..index + length) else {
+            return false;
+        };
 
-            if is_invalid {
-                return false;
-            }
+        // Using the above length, check the next bytes ensuring they're
+        // prefixed with 10 i.e. are continuation bytes.
+        if !remaining
+            .iter()
+            .all(|cont_byte| cont_byte & 0b1100_0000 == 0b1000_0000)
+        {
+            return false;
         }
 
         index += length;
@@ -68,7 +69,8 @@ fn is_valid(source: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::is_valid;
+    use crate::raw_length;
 
     #[test]
     fn utf_zero_bytes_length() {

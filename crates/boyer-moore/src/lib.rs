@@ -68,7 +68,7 @@ fn bm_search(source: &str, pattern: &str) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::bm_search;
 
     #[test]
     fn bm_search_empty_source_and_pattern() {

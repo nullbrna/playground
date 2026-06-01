@@ -79,7 +79,7 @@ impl NaiveBayes {
 mod tests {
     use std::sync::OnceLock;
 
-    use super::*;
+    use crate::NaiveBayes;
 
     static MODEL: OnceLock<NaiveBayes> = OnceLock::new();
 

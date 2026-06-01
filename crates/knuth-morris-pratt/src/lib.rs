@@ -85,7 +85,8 @@ fn kmp_search(source: &str, pattern: &str) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::kmp_failure_function;
+    use crate::kmp_search;
 
     #[test]
     fn kmp_failure_function_empty_pattern() {
