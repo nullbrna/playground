@@ -39,8 +39,8 @@ fn is_valid(source: &str) -> bool {
     let bytes = source.as_bytes();
 
     let mut index = 0;
-    while let Some(byte) = bytes.get(index) {
-        let length = match byte {
+    while let Some(leading_byte) = bytes.get(index) {
+        let length = match leading_byte {
             value if value & 0b1000_0000 == 0b0000_0000 => 1,
             value if value & 0b1110_0000 == 0b1100_0000 => 2,
             value if value & 0b1111_0000 == 0b1110_0000 => 3,
@@ -48,20 +48,15 @@ fn is_valid(source: &str) -> bool {
             _ => return false,
         };
 
-        let Some(remaining) = bytes.get(index + 1..index + length) else {
-            return false;
-        };
-
-        // Using the above length, check the next bytes ensuring they're
-        // prefixed with 10 i.e. are continuation bytes.
-        if !remaining
-            .iter()
-            .all(|cont_byte| cont_byte & 0b1100_0000 == 0b1000_0000)
+        // Ensure the remaining is prefixed with 10 i.e. are continuation bytes.
+        if let Some(rest) = bytes.get(index + 1..index + length)
+            && rest.iter().all(|byte| byte & 0b1100_0000 == 0b1000_0000)
         {
-            return false;
+            index += length;
+            continue;
         }
 
-        index += length;
+        return false;
     }
 
     true
