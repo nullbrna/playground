@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
     let state = HandlerState::new().await?;
 
     let middleware = axum::middleware::from_fn_with_state(state.clone(), handler::middleware);
-    // NOTE: Logs response status & latency ONLY in debug builds.
+    // NOTE: Logs response status and latency ONLY in debug builds.
     let tracing = TraceLayer::new_for_http();
 
     let router = Router::new()

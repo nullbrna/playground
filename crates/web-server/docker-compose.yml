@@ -26,11 +26,8 @@ services:
             - REDIS_URL=redis://redis:6379
             # Tests hit an already running container, so any logic outside of
             # test modules needs a custom feature as the test flag isn't set.
-            # NOTE: Overwrites default value from ENV commands.
             - MODE=testing
         volumes:
-            # Mount source files for hot-reloading.
+            # Mount source files for hot reloading.
             - ./src:/app/src
-            # Tests seed their unique SQL schema with migrations. The scripts
-            # are needed when running tests within the container.
             - ./migrations:/app/migrations

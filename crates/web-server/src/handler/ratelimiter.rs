@@ -9,8 +9,10 @@ use axum::response::IntoResponse;
 use crate::handler::HandlerResult;
 use crate::handler::HandlerState;
 
-const LIMIT_COUNT: i64 = 10; // Number of requests allowed within the window.
-const LIMIT_WINDOW: i64 = 2; // TTL (seconds) for a key.
+// Number of requests allowed within the window.
+const LIMIT_COUNT: i64 = 10;
+// TTL (seconds) for a key.
+const LIMIT_WINDOW: i64 = 2;
 const FIRST_TEXT: &str = "LIMIT_FIRST";
 const ONGOING_TEXT: &str = "LIMIT_ONGOING";
 
@@ -27,10 +29,10 @@ pub async fn core(
     // Increment/initialise (to 1) the request count against the IP. Each
     // request within the window resets the keys expiry timer.
     //
-    // Patterns for rate-limiting & counting requests:
+    // Patterns for rate-limiting and counting requests:
     // 1. Fixed: Time buckets e.g. per 60 seconds
     // 2. Sliding: Moving buckets e.g. last 60 seconds from now
-    // 3. Rolling/Token Bucket: Each request uses a token & refills over time
+    // 3. Rolling/Token Bucket: Each request uses a token and refills over time
     let (count, _): (i64, i32) = redis::pipe()
         .atomic()
         .incr(&limiter_key, 1)

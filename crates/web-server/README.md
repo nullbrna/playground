@@ -11,9 +11,7 @@ docker exec -it web-server-server-1 sh
 - Create a new named migration:
 
 ```sh
-# Install helper program.
 cargo install sqlx
-
 sqlx migrate add <name>
 ```
 

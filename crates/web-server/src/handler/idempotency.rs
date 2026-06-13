@@ -10,8 +10,10 @@ use crate::handler::HandlerResult;
 use crate::handler::HandlerState;
 
 const IDEMPOTENCY_HEADER_KEY: &str = "Idempotency-Key";
-const HIT_TEXT: &str = "CACHE_HIT"; // Cached status code found against key.
-const MISS_TEXT: &str = "CACHE_MISS"; // Status code queried by key not found.
+// Cached status code found against key.
+const HIT_TEXT: &str = "CACHE_HIT";
+// Status code queried by key not found.
+const MISS_TEXT: &str = "CACHE_MISS";
 
 pub async fn core(
     Extension(identifier): Extension<String>,
@@ -27,8 +29,8 @@ pub async fn core(
         .map_err(anyhow::Error::from)?;
 
     // Check for an existing status code stored by the key. If it's there it'll
-    // be used to early-return the exact same response.
-    // NOTE: Usually the response payload is also cached & returned.
+    // be used to early return the exact same response.
+    // NOTE: Usually the response payload is also cached and returned.
     if let Some(cached_status) = find_status_by_key(&state.pool, &identifier, key).await? {
         let decoded_status = u16::try_from(cached_status).map_err(anyhow::Error::from)?;
         let status_code = StatusCode::from_u16(decoded_status).map_err(anyhow::Error::from)?;
@@ -38,7 +40,7 @@ pub async fn core(
     };
 
     // At this point, we haven't got the key cached so set a fresh one. Best to
-    // perform any read/write operations AFTER this has successfully run.
+    // perform any read or write operations AFTER this has successfully run.
     insert_status_by_key(&state.pool, &identifier, key).await?;
     tracing::info!("[IDEMPOTENCY] Cache miss: {key}");
 
@@ -68,7 +70,6 @@ async fn find_status_by_key(
 }
 
 async fn insert_status_by_key(pool: &PgPool, identifier: &str, key: &str) -> HandlerResult<()> {
-    // NOTE: Added keys are NOT purged on expiry.
     let statement = format!(
         r#"
         INSERT INTO "{}".idempotency (key, status, expires_at)

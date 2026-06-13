@@ -72,7 +72,7 @@ impl HandlerState {
         let redis_resource = std::env::var("REDIS_URL")?;
 
         // Tests need a dedicated connection. Tests run in parallel so each
-        // schema setup could overwrite the search path & create data races.
+        // schema setup could overwrite the search path and create data races.
         let connection_count = if cfg!(test) { 1 } else { 10 };
         let pool = PgPoolOptions::new()
             .max_connections(connection_count)
@@ -114,19 +114,18 @@ pub async fn middleware(
     mut request: Request,
     next: Next,
 ) -> HandlerResult<impl IntoResponse> {
+    let identifier = String::from("public");
+    #[cfg(feature = "testing")]
+    let mut identifier = String::from("local");
+
     #[cfg(feature = "testing")]
     if let Some(header) = headers.get(TEST_ID_HEADER_KEY)
-        && let Ok(header_value) = header.to_str()
+        && let Ok(header) = header.to_str()
     {
-        let identifier = String::from(header_value);
-        request.extensions_mut().insert(identifier);
-
-        return Ok(next.run(request).await);
+        identifier = String::from(header);
     }
 
-    let identifier = String::from("public");
     request.extensions_mut().insert(identifier);
-
     Ok(next.run(request).await)
 }
 
