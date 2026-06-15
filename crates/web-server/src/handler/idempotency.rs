@@ -1,3 +1,10 @@
+// Idempotency ensures that repeating a request multiple times has the exact
+// same effect as making it once. Checking for a unique key, we can safely
+// return cached results.
+//
+// Generally any response body returned in the initial request should be
+// duplicated for any subsequent calls i.e. status codes, body etc.
+
 use axum::Extension;
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -102,48 +109,50 @@ mod tests {
 
     const ENDPOINT: &str = "http://localhost:8080/idempotency";
 
-    async fn make_request(identifier: &str) -> anyhow::Result<Response> {
+    async fn make_request(identifier: &str) -> Response {
         Client::new()
             .post(ENDPOINT)
             .header(TEST_ID_HEADER_KEY, identifier)
             .header(IDEMPOTENCY_HEADER_KEY, "foo")
             .send()
             .await
-            .map_err(anyhow::Error::from)
+            .expect("sending HTTP request")
     }
 
     #[tokio::test]
-    async fn should_400_without_header() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_for_test().await?;
+    async fn should_400_without_header() {
+        let identifier = HandlerState::setup_for_test().await;
+
         let response = Client::new()
             .post(ENDPOINT)
             .header(TEST_ID_HEADER_KEY, identifier)
             .send()
-            .await?;
+            .await
+            .expect("sending HTTP request without header");
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-        Ok(())
     }
 
     #[tokio::test]
-    async fn should_201_miss_on_first_request() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_for_test().await?;
-        let response = make_request(&identifier).await?;
+    async fn should_201_miss_on_first_request() {
+        let identifier = HandlerState::setup_for_test().await;
 
+        let response = make_request(&identifier).await;
         assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response.text().await?, MISS_TEXT);
-        Ok(())
+
+        let body = response.text().await.expect("parsing HTTP response body");
+        assert_eq!(body, MISS_TEXT);
     }
 
     #[tokio::test]
-    async fn should_201_hit_on_repeated_request() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_for_test().await?;
+    async fn should_201_hit_on_repeated_request() {
+        let identifier = HandlerState::setup_for_test().await;
 
-        make_request(&identifier).await?;
-        let response = make_request(&identifier).await?;
-
+        make_request(&identifier).await;
+        let response = make_request(&identifier).await;
         assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response.text().await?, HIT_TEXT);
-        Ok(())
+
+        let body = response.text().await.expect("parsing HTTP response body");
+        assert_eq!(body, HIT_TEXT);
     }
 }

@@ -60,9 +60,10 @@ impl From<redis::RedisError> for HandlerError {
 #[derive(Clone)]
 pub struct HandlerState {
     /// Connection pool for Postgres.
-    /// NOTE: [`PgPool`] under-the-hood is an [`std::sync::Arc`].
+    /// NOTE: [`PgPool`] is an [`std::sync::Arc`].
     pool: PgPool,
     /// Connection to Redis. Automatically reconnects when needed.
+    /// NOTE: [`redis::aio::ConnectionManager`] is an [`std::sync::Arc`].
     redis: ConnectionManager,
 }
 
@@ -83,29 +84,37 @@ impl HandlerState {
 
         let client = Client::open(redis_resource)?;
         let redis = ConnectionManager::new(client).await?;
-
         Ok(Self { pool, redis })
     }
 
     #[cfg(test)]
-    async fn setup_for_test() -> anyhow::Result<String> {
+    async fn setup_for_test() -> String {
         use uuid::Uuid;
 
-        let state = Self::new().await?;
+        let state = Self::new().await.expect("creating test state");
         let identifier = Uuid::new_v4().to_string();
 
         // 1. Create an isolated schema for the current test by the unique ID.
         let statement = format!("CREATE SCHEMA IF NOT EXISTS \"{}\"", identifier);
-        sqlx::query(&statement).execute(&state.pool).await?;
+        sqlx::query(&statement)
+            .execute(&state.pool)
+            .await
+            .expect("creating unique schema");
 
         // 2. Pin all subsequent queries to the schema.
         let statement = format!("SET search_path TO \"{}\"", identifier);
-        sqlx::query(&statement).execute(&state.pool).await?;
+        sqlx::query(&statement)
+            .execute(&state.pool)
+            .await
+            .expect("setting schema as the query default");
 
         // 3. Apply migrations into the schema.
-        sqlx::migrate!().run(&state.pool).await?;
+        sqlx::migrate!()
+            .run(&state.pool)
+            .await
+            .expect("applying migrations into schema");
 
-        Ok(identifier)
+        identifier
     }
 }
 
@@ -116,14 +125,13 @@ pub async fn middleware(
 ) -> HandlerResult<impl IntoResponse> {
     let identifier = String::from("public");
     #[cfg(feature = "testing")]
-    let mut identifier = String::from("local");
-
-    #[cfg(feature = "testing")]
-    if let Some(header) = headers.get(TEST_ID_HEADER_KEY)
+    let identifier = if let Some(header) = headers.get(TEST_ID_HEADER_KEY)
         && let Ok(header) = header.to_str()
     {
-        identifier = String::from(header);
-    }
+        String::from(header)
+    } else {
+        String::from("local")
+    };
 
     request.extensions_mut().insert(identifier);
     Ok(next.run(request).await)

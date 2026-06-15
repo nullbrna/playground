@@ -1,3 +1,12 @@
+// Rate limiting controls the rate of requests received, protecting resources
+// from being overwhelmed. If a client exceeds a threshold, further requests are
+// blocked until the limit resets.
+//
+// Patterns for rate-limiting and counting requests:
+// 1. Fixed: Time buckets e.g. per 60 seconds
+// 2. Sliding: Moving buckets e.g. last 60 seconds from now
+// 3. Rolling/Token Bucket: Each request uses a token and refills over time
+
 use std::net::SocketAddr;
 
 use axum::Extension;
@@ -9,12 +18,12 @@ use axum::response::IntoResponse;
 use crate::handler::HandlerResult;
 use crate::handler::HandlerState;
 
+const FIRST_TEXT: &str = "LIMIT_FIRST";
+const ONGOING_TEXT: &str = "LIMIT_ONGOING";
 // Number of requests allowed within the window.
 const LIMIT_COUNT: i64 = 10;
 // TTL (seconds) for a key.
 const LIMIT_WINDOW: i64 = 2;
-const FIRST_TEXT: &str = "LIMIT_FIRST";
-const ONGOING_TEXT: &str = "LIMIT_ONGOING";
 
 pub async fn core(
     Extension(identifier): Extension<String>,
@@ -26,13 +35,8 @@ pub async fn core(
     let ip = address.ip();
     let limiter_key = format!("{}:rate_limiter:{}", identifier, ip);
 
-    // Increment/initialise (to 1) the request count against the IP. Each
+    // Increment (or initialise to 1) the request count against the IP. Each
     // request within the window resets the keys expiry timer.
-    //
-    // Patterns for rate-limiting and counting requests:
-    // 1. Fixed: Time buckets e.g. per 60 seconds
-    // 2. Sliding: Moving buckets e.g. last 60 seconds from now
-    // 3. Rolling/Token Bucket: Each request uses a token and refills over time
     let (count, _): (i64, i32) = redis::pipe()
         .atomic()
         .incr(&limiter_key, 1)
@@ -67,50 +71,49 @@ mod tests {
 
     const ENDPOINT: &str = "http://localhost:8080/rate-limiter";
 
-    async fn make_request(identifier: &str) -> anyhow::Result<Response> {
+    async fn make_request(identifier: &str) -> Response {
         Client::new()
             .get(ENDPOINT)
             .header(TEST_ID_HEADER_KEY, identifier)
             .send()
             .await
-            .map_err(anyhow::Error::from)
+            .expect("sending HTTP request")
     }
 
     #[tokio::test]
-    async fn should_200_initialise_cache() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_for_test().await?;
-        let response = make_request(&identifier).await?;
+    async fn should_200_initialise_cache() {
+        let identifier = HandlerState::setup_for_test().await;
 
+        let response = make_request(&identifier).await;
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response.text().await?, FIRST_TEXT);
-        Ok(())
+
+        let body = response.text().await.expect("parsing HTTP response body");
+        assert_eq!(body, FIRST_TEXT);
     }
 
     #[tokio::test]
-    async fn should_200_ongoing_increment() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_for_test().await?;
+    async fn should_200_ongoing_increment() {
+        let identifier = HandlerState::setup_for_test().await;
 
-        make_request(&identifier).await?;
+        make_request(&identifier).await;
         for _ in 0..LIMIT_COUNT - 1 {
-            let response = make_request(&identifier).await?;
-
+            let response = make_request(&identifier).await;
             assert_eq!(response.status(), StatusCode::OK);
-            assert_eq!(response.text().await?, ONGOING_TEXT);
-        }
 
-        Ok(())
+            let body = response.text().await.expect("parsing HTTP response body");
+            assert_eq!(body, ONGOING_TEXT);
+        }
     }
 
     #[tokio::test]
-    async fn should_429_over_limit() -> anyhow::Result<()> {
-        let identifier = HandlerState::setup_for_test().await?;
+    async fn should_429_over_limit() {
+        let identifier = HandlerState::setup_for_test().await;
 
         for _ in 0..LIMIT_COUNT {
-            make_request(&identifier).await?;
+            make_request(&identifier).await;
         }
 
-        let response = make_request(&identifier).await?;
+        let response = make_request(&identifier).await;
         assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
-        Ok(())
     }
 }
