@@ -113,7 +113,7 @@ impl HandlerState {
         sqlx::query(&statement)
             .execute(&state.pool)
             .await
-            .expect("setting schema as the query default");
+            .expect("Setting schema as the query default");
 
         // 3. Apply migrations into the schema.
         sqlx::migrate!()

@@ -14,15 +14,8 @@ use crate::handler::HandlerState;
 mod handler;
 
 fn setup_environment() -> String {
-    let env_level = {
-        let fallback = String::from("DEBUG");
-        std::env::var("LOG_LEVEL").unwrap_or(fallback)
-    };
-
-    let port = {
-        let fallback = String::from("8080");
-        std::env::var("PORT").unwrap_or(fallback)
-    };
+    let env_level = std::env::var("LOG_LEVEL").expect("Missing LOG_LEVEL env");
+    let port = std::env::var("PORT").expect("Missing PORT env");
 
     let level = Level::from_str(&env_level).unwrap_or(Level::DEBUG);
     tracing_subscriber::fmt()
