@@ -14,13 +14,15 @@ use crate::handler::HandlerState;
 mod handler;
 
 fn setup_environment() -> String {
-    let env_or_default = |key: &str, fallback: &str| {
-        let fallback = fallback.into();
-        std::env::var(key).unwrap_or(fallback)
+    let env_level = {
+        let fallback = String::from("DEBUG");
+        std::env::var("LOG_LEVEL").unwrap_or(fallback)
     };
 
-    let env_level = env_or_default("LOG_LEVEL", "DEBUG");
-    let port = env_or_default("PORT", "8080");
+    let port = {
+        let fallback = String::from("8080");
+        std::env::var("PORT").unwrap_or(fallback)
+    };
 
     let level = Level::from_str(&env_level).unwrap_or(Level::DEBUG);
     tracing_subscriber::fmt()
@@ -33,8 +35,8 @@ fn setup_environment() -> String {
     format!("0.0.0.0:{port}")
 }
 
-async fn create_router() -> anyhow::Result<IntoMakeServiceWithConnectInfo<Router, SocketAddr>> {
-    let state = HandlerState::new().await?;
+async fn create_configured_router() -> IntoMakeServiceWithConnectInfo<Router, SocketAddr> {
+    let state = HandlerState::new().await;
     let middleware = axum::middleware::from_fn_with_state(state.clone(), handler::middleware);
 
     // NOTE: Logs response status and latency ONLY in debug builds.
@@ -49,18 +51,20 @@ async fn create_router() -> anyhow::Result<IntoMakeServiceWithConnectInfo<Router
         // Allows for reading the request IP through an extension.
         .into_make_service_with_connect_info::<SocketAddr>();
 
-    Ok(router)
+    router
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() {
     let host = setup_environment();
+    let listener = TcpListener::bind(&host)
+        .await
+        .expect("Binding to the host address");
 
-    let listener = TcpListener::bind(&host).await?;
-    let router = create_router().await?;
-
+    let router = create_configured_router().await;
     tracing::info!("Starting: {host}");
-    axum::serve(listener, router).await?;
 
-    Ok(())
+    axum::serve(listener, router)
+        .await
+        .expect("An error on the socket somehow bubbled up");
 }

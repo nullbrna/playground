@@ -77,7 +77,7 @@ mod tests {
             .header(TEST_ID_HEADER_KEY, identifier)
             .send()
             .await
-            .expect("sending HTTP request")
+            .expect("Sending HTTP request")
     }
 
     #[tokio::test]
@@ -87,7 +87,7 @@ mod tests {
         let response = make_request(&identifier).await;
         assert_eq!(response.status(), StatusCode::OK);
 
-        let body = response.text().await.expect("parsing HTTP response body");
+        let body = response.text().await.expect("Parsing first response body");
         assert_eq!(body, FIRST_TEXT);
     }
 
@@ -100,7 +100,11 @@ mod tests {
             let response = make_request(&identifier).await;
             assert_eq!(response.status(), StatusCode::OK);
 
-            let body = response.text().await.expect("parsing HTTP response body");
+            let body = response
+                .text()
+                .await
+                .expect("Parsing ongoing response body");
+
             assert_eq!(body, ONGOING_TEXT);
         }
     }

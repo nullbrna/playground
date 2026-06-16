@@ -5,6 +5,7 @@
 // Generally any response body returned in the initial request should be
 // duplicated for any subsequent calls i.e. status codes, body etc.
 
+use anyhow::Context;
 use axum::Extension;
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -62,35 +63,39 @@ async fn find_status_by_key(
     let statement = format!(
         r#"
         SELECT status
-        FROM "{}".idempotency
+        FROM "{identifier}".idempotency
         WHERE key = $1
-        AND NOW() < expires_at
-        "#,
-        identifier
+        AND NOW() < expires_at;
+        "#
     );
 
     sqlx::query_scalar(&statement)
         .bind(key)
         .fetch_optional(pool)
         .await
+        .context("[IDEMPOTENCY] Finding an idempotency record")
         .map_err(HandlerError::from)
 }
 
 async fn insert_status_by_key(pool: &PgPool, identifier: &str, key: &str) -> HandlerResult<()> {
     let statement = format!(
         r#"
-        INSERT INTO "{}".idempotency (key, status, expires_at)
-        VALUES ($1, $2, NOW() + MAKE_INTERVAL(SECS => $3))
-        "#,
-        identifier
+        INSERT INTO "{identifier}".idempotency (key, status, expires_at)
+        VALUES ($1, $2, NOW() + MAKE_INTERVAL(SECS => $3));
+        "#
     );
+
+    const STATUS_CODE: i32 = 201;
+    // NOTE: Upon expiry, the record remains but isn't queried.
+    const EXPIRY_SECS: i32 = 86_400;
 
     sqlx::query(&statement)
         .bind(key)
-        .bind(201)
-        .bind(86400) // 1 day (seconds) TTL.
+        .bind(STATUS_CODE)
+        .bind(EXPIRY_SECS)
         .execute(pool)
-        .await?;
+        .await
+        .context("[IDEMPOTENCY] Inserting idempotency record")?;
 
     Ok(())
 }
@@ -116,7 +121,7 @@ mod tests {
             .header(IDEMPOTENCY_HEADER_KEY, "foo")
             .send()
             .await
-            .expect("sending HTTP request")
+            .expect("Sending HTTP request")
     }
 
     #[tokio::test]
@@ -128,7 +133,7 @@ mod tests {
             .header(TEST_ID_HEADER_KEY, identifier)
             .send()
             .await
-            .expect("sending HTTP request without header");
+            .expect("Sending HTTP request without a header");
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
@@ -140,7 +145,7 @@ mod tests {
         let response = make_request(&identifier).await;
         assert_eq!(response.status(), StatusCode::CREATED);
 
-        let body = response.text().await.expect("parsing HTTP response body");
+        let body = response.text().await.expect("Parsing fresh response body");
         assert_eq!(body, MISS_TEXT);
     }
 
@@ -149,10 +154,11 @@ mod tests {
         let identifier = HandlerState::setup_for_test().await;
 
         make_request(&identifier).await;
+
         let response = make_request(&identifier).await;
         assert_eq!(response.status(), StatusCode::CREATED);
 
-        let body = response.text().await.expect("parsing HTTP response body");
+        let body = response.text().await.expect("Parsing cached response body");
         assert_eq!(body, HIT_TEXT);
     }
 }

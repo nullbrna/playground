@@ -68,9 +68,9 @@ pub struct HandlerState {
 }
 
 impl HandlerState {
-    pub async fn new() -> anyhow::Result<Self> {
-        let database_resource = std::env::var("DATABASE_URL")?;
-        let redis_resource = std::env::var("REDIS_URL")?;
+    pub async fn new() -> Self {
+        let database_resource = std::env::var("DATABASE_URL").expect("Missing DATABASE_URL env");
+        let redis_resource = std::env::var("REDIS_URL").expect("Missing REDIS_URL env");
 
         // Tests need a dedicated connection. Tests run in parallel so each
         // schema setup could overwrite the search path and create data races.
@@ -78,31 +78,38 @@ impl HandlerState {
         let pool = PgPoolOptions::new()
             .max_connections(connection_count)
             .connect(&database_resource)
-            .await?;
+            .await
+            .expect("Opening first pool connection");
 
-        sqlx::migrate!().run(&pool).await?;
+        sqlx::migrate!()
+            .run(&pool)
+            .await
+            .expect("Running migration script(s)");
 
-        let client = Client::open(redis_resource)?;
-        let redis = ConnectionManager::new(client).await?;
-        Ok(Self { pool, redis })
+        let client = Client::open(redis_resource).expect("Validating Redis connection URI");
+        let redis = ConnectionManager::new(client)
+            .await
+            .expect("Initialising Redis connection");
+
+        Self { pool, redis }
     }
 
     #[cfg(test)]
     async fn setup_for_test() -> String {
         use uuid::Uuid;
 
-        let state = Self::new().await.expect("creating test state");
+        let state = Self::new().await;
         let identifier = Uuid::new_v4().to_string();
 
         // 1. Create an isolated schema for the current test by the unique ID.
-        let statement = format!("CREATE SCHEMA IF NOT EXISTS \"{}\"", identifier);
+        let statement = format!("CREATE SCHEMA IF NOT EXISTS \"{identifier}\"");
         sqlx::query(&statement)
             .execute(&state.pool)
             .await
-            .expect("creating unique schema");
+            .expect("Creating unique schema as default");
 
         // 2. Pin all subsequent queries to the schema.
-        let statement = format!("SET search_path TO \"{}\"", identifier);
+        let statement = format!("SET search_path TO \"{identifier}\"");
         sqlx::query(&statement)
             .execute(&state.pool)
             .await
@@ -112,7 +119,7 @@ impl HandlerState {
         sqlx::migrate!()
             .run(&state.pool)
             .await
-            .expect("applying migrations into schema");
+            .expect("Applying migrations into schema");
 
         identifier
     }
@@ -123,17 +130,19 @@ pub async fn middleware(
     mut request: Request,
     next: Next,
 ) -> HandlerResult<impl IntoResponse> {
-    let identifier = String::from("public");
     #[cfg(feature = "testing")]
-    let identifier = if let Some(header) = headers.get(TEST_ID_HEADER_KEY)
+    if let Some(header) = headers.get(TEST_ID_HEADER_KEY)
         && let Ok(header) = header.to_str()
     {
-        String::from(header)
-    } else {
-        String::from("local")
-    };
+        let identifier = String::from(header);
+        request.extensions_mut().insert(identifier);
 
+        return Ok(next.run(request).await);
+    }
+
+    let identifier = String::from("public");
     request.extensions_mut().insert(identifier);
+
     Ok(next.run(request).await)
 }
 
