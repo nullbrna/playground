@@ -18,6 +18,7 @@ use crate::handler::HandlerResult;
 use crate::handler::HandlerState;
 
 const IDEMPOTENCY_HEADER_KEY: &str = "Idempotency-Key";
+
 // Cached status code found against key.
 const HIT_TEXT: &str = "CACHE_HIT";
 // Status code queried by key not found.
@@ -43,14 +44,14 @@ pub async fn core(
         let decoded_status = u16::try_from(cached_status).map_err(anyhow::Error::from)?;
         let status_code = StatusCode::from_u16(decoded_status).map_err(anyhow::Error::from)?;
 
-        tracing::info!("[IDEMPOTENCY] Cache hit: {key}");
+        tracing::debug!(key, "[IDEMPOTENCY] Cache hit");
         return Ok((status_code, HIT_TEXT));
     };
 
     // At this point, we haven't got the key cached so set a fresh one. Best to
     // perform any read or write operations AFTER this has successfully run.
     insert_status_by_key(&state.pool, &identifier, key).await?;
-    tracing::info!("[IDEMPOTENCY] Cache miss: {key}");
+    tracing::debug!(key, "[IDEMPOTENCY] Cache miss");
 
     Ok((StatusCode::CREATED, MISS_TEXT))
 }
@@ -73,7 +74,7 @@ async fn find_status_by_key(
         .bind(key)
         .fetch_optional(pool)
         .await
-        .context("[IDEMPOTENCY] Finding an idempotency record")
+        .context("[IDEMPOTENCY] Query failed on read")
         .map_err(HandlerError::from)
 }
 
@@ -95,7 +96,7 @@ async fn insert_status_by_key(pool: &PgPool, identifier: &str, key: &str) -> Han
         .bind(EXPIRY_SECS)
         .execute(pool)
         .await
-        .context("[IDEMPOTENCY] Inserting idempotency record")?;
+        .context("[IDEMPOTENCY] Query failed on write")?;
 
     Ok(())
 }
@@ -154,7 +155,6 @@ mod tests {
         let identifier = HandlerState::setup_for_test().await;
 
         make_request(&identifier).await;
-
         let response = make_request(&identifier).await;
         assert_eq!(response.status(), StatusCode::CREATED);
 

@@ -27,6 +27,10 @@ impl IntoResponse for HandlerError {
 
 impl From<StatusCode> for HandlerError {
     fn from(value: StatusCode) -> Self {
+        if !value.is_informational() && !value.is_success() {
+            tracing::warn!(value = ?value, "Non-positive status code returned");
+        }
+
         Self(value)
     }
 }

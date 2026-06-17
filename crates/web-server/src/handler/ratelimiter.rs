@@ -18,22 +18,23 @@ use axum::response::IntoResponse;
 use crate::handler::HandlerResult;
 use crate::handler::HandlerState;
 
-const FIRST_TEXT: &str = "LIMIT_FIRST";
-const ONGOING_TEXT: &str = "LIMIT_ONGOING";
 // Number of requests allowed within the window.
 const LIMIT_COUNT: i64 = 10;
 // TTL (seconds) for a key.
 const LIMIT_WINDOW: i64 = 2;
+
+const FIRST_TEXT: &str = "LIMIT_FIRST";
+const ONGOING_TEXT: &str = "LIMIT_ONGOING";
 
 pub async fn core(
     Extension(identifier): Extension<String>,
     ConnectInfo(address): ConnectInfo<SocketAddr>,
     State(state): State<HandlerState>,
 ) -> HandlerResult<impl IntoResponse> {
-    let mut connection = state.redis.clone();
+    let mut redis_conn = state.redis.clone();
 
-    let ip = address.ip();
-    let limiter_key = format!("{}:rate_limiter:{}", identifier, ip);
+    let ip_addr = address.ip();
+    let limiter_key = format!("{}:rate_limiter:{}", identifier, ip_addr);
 
     // Increment (or initialise to 1) the request count against the IP. Each
     // request within the window resets the keys expiry timer.
@@ -41,16 +42,13 @@ pub async fn core(
         .atomic()
         .incr(&limiter_key, 1)
         .expire(&limiter_key, LIMIT_WINDOW)
-        .query_async(&mut connection)
+        .query_async(&mut redis_conn)
         .await?;
 
     if count > LIMIT_COUNT {
-        tracing::error!("[RATE_LIMITER] {ip} suspended");
+        tracing::error!(addr = %ip_addr, "[RATE_LIMITER] Suspended for exceeding limit");
         return Err(StatusCode::TOO_MANY_REQUESTS)?;
-    }
-
-    tracing::info!("[RATE_LIMITER] {ip} has requested {count} time(s)");
-    if count == 1 {
+    } else if count == 1 {
         return Ok((StatusCode::OK, FIRST_TEXT));
     }
 

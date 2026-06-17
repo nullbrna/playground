@@ -1,6 +1,6 @@
 ## Usage
 
-- To start the server locally:
+### Starting the server locally
 
 ```sh
 docker compose up
@@ -8,12 +8,12 @@ docker compose up
 docker exec -it web-server-server-1 sh
 ```
 
-- Create a new named migration:
+### Creating a new named migration
+
+> Migration script will be placed in `migrations/` which will be the default for
+  any runtime migrations.
 
 ```sh
 cargo install sqlx
 sqlx migrate add <name>
 ```
-
-> Migration script will be placed in `migrations/` which will be the default for
-  any runtime migrations.

@@ -22,6 +22,8 @@ services:
         ports:
             - 8080:8080
         environment:
+            - PORT=8080
+            - RUST_LOG=trace,sqlx=warn,axum::serve=info
             - DATABASE_URL=postgres://admin:password@database:5432/playground
             - REDIS_URL=redis://redis:6379
             # Tests hit an already running container, so any logic outside of

@@ -1,30 +1,26 @@
 use std::net::SocketAddr;
-use std::str::FromStr;
 
 use axum::Router;
 use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
 use axum::routing::get;
 use axum::routing::post;
 use tokio::net::TcpListener;
-use tower_http::trace::TraceLayer;
-use tracing::Level;
+
+use tracing_subscriber::EnvFilter;
 
 use crate::handler::HandlerState;
 
 mod handler;
 
 fn setup_environment() -> String {
-    let env_level = std::env::var("LOG_LEVEL").expect("Missing LOG_LEVEL env");
-    let port = std::env::var("PORT").expect("Missing PORT env");
-
-    let level = Level::from_str(&env_level).unwrap_or(Level::DEBUG);
+    let env_filter = EnvFilter::from_default_env();
     tracing_subscriber::fmt()
-        .with_max_level(level)
+        .with_env_filter(env_filter)
         .with_target(false)
         .compact()
         .init();
 
-    tracing::info!("Logging: {level}");
+    let port = std::env::var("PORT").expect("Missing PORT env");
     format!("0.0.0.0:{port}")
 }
 
@@ -32,16 +28,12 @@ async fn create_configured_router() -> IntoMakeServiceWithConnectInfo<Router, So
     let state = HandlerState::new().await;
     let middleware = axum::middleware::from_fn_with_state(state.clone(), handler::middleware);
 
-    // NOTE: Logs response status and latency ONLY in debug builds.
-    let tracing = TraceLayer::new_for_http();
     let router = Router::new()
         .route("/", get(handler::index))
         .route("/idempotency", post(handler::idempotency::core))
         .route("/rate-limiter", get(handler::ratelimiter::core))
         .layer(middleware)
-        .layer(tracing)
         .with_state(state)
-        // Allows for reading the request IP through an extension.
         .into_make_service_with_connect_info::<SocketAddr>();
 
     router
@@ -55,8 +47,6 @@ async fn main() {
         .expect("Binding to the host address");
 
     let router = create_configured_router().await;
-    tracing::info!("Starting: {host}");
-
     axum::serve(listener, router)
         .await
         .expect("An error on the socket somehow bubbled up");
