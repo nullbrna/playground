@@ -27,8 +27,8 @@ impl IntoResponse for HandlerError {
 
 impl From<StatusCode> for HandlerError {
     fn from(value: StatusCode) -> Self {
-        if !value.is_informational() && !value.is_success() {
-            tracing::warn!(value = ?value, "Non-positive status code returned");
+        if value.is_server_error() || value.is_client_error() {
+            tracing::warn!(value = ?value, "Negative status code");
         }
 
         Self(value)
@@ -37,7 +37,7 @@ impl From<StatusCode> for HandlerError {
 
 impl From<anyhow::Error> for HandlerError {
     fn from(value: anyhow::Error) -> Self {
-        tracing::error!("[UNEXPECTED] {value}");
+        tracing::error!(err = %value, "[UNEXPECTED]");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
@@ -49,14 +49,14 @@ impl From<sqlx::Error> for HandlerError {
             return Self(StatusCode::OK);
         }
 
-        tracing::error!("[DATABASE] {value}");
+        tracing::error!(err = %value, "[DATABASE]");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
 
 impl From<redis::RedisError> for HandlerError {
     fn from(value: redis::RedisError) -> Self {
-        tracing::error!("[REDIS] {value}");
+        tracing::error!(err = %value, "[REDIS]");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }

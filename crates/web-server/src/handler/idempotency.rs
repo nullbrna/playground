@@ -5,7 +5,6 @@
 // Generally any response body returned in the initial request should be
 // duplicated for any subsequent calls i.e. status codes, body etc.
 
-use anyhow::Context;
 use axum::Extension;
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -74,7 +73,6 @@ async fn find_status_by_key(
         .bind(key)
         .fetch_optional(pool)
         .await
-        .context("[IDEMPOTENCY] Query failed on read")
         .map_err(HandlerError::from)
 }
 
@@ -95,8 +93,7 @@ async fn insert_status_by_key(pool: &PgPool, identifier: &str, key: &str) -> Han
         .bind(STATUS_CODE)
         .bind(EXPIRY_SECS)
         .execute(pool)
-        .await
-        .context("[IDEMPOTENCY] Query failed on write")?;
+        .await?;
 
     Ok(())
 }
