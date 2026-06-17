@@ -18,9 +18,7 @@ use crate::handler::HandlerState;
 
 const IDEMPOTENCY_HEADER_KEY: &str = "Idempotency-Key";
 
-// Cached status code found against key.
 const HIT_TEXT: &str = "CACHE_HIT";
-// Status code queried by key not found.
 const MISS_TEXT: &str = "CACHE_MISS";
 
 pub async fn core(

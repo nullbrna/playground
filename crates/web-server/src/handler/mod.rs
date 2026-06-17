@@ -28,7 +28,7 @@ impl IntoResponse for HandlerError {
 impl From<StatusCode> for HandlerError {
     fn from(value: StatusCode) -> Self {
         if value.is_server_error() || value.is_client_error() {
-            tracing::warn!(value = ?value, "Negative status code");
+            tracing::warn!(code = ?value, "Negative status code returned");
         }
 
         Self(value)

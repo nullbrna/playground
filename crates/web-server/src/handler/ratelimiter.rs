@@ -18,7 +18,7 @@ use axum::response::IntoResponse;
 use crate::handler::HandlerResult;
 use crate::handler::HandlerState;
 
-// Number of requests allowed within the window.
+// Requests allowed within a window.
 const LIMIT_COUNT: i64 = 10;
 // TTL (seconds) for a key.
 const LIMIT_WINDOW: i64 = 2;
@@ -49,6 +49,7 @@ pub async fn core(
         tracing::error!(addr = %ip_addr, "[RATE_LIMITER] Suspended for exceeding limit");
         return Err(StatusCode::TOO_MANY_REQUESTS)?;
     } else if count == 1 {
+        tracing::info!(addr = %ip_addr, "[RATE_LIMITER] Request window started");
         return Ok((StatusCode::OK, FIRST_TEXT));
     }
 
