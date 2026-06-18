@@ -2,7 +2,7 @@
 // from being overwhelmed. If a client exceeds a threshold, further requests are
 // blocked until the limit resets.
 //
-// Patterns for rate-limiting and counting requests:
+// Patterns for rate limiting and counting requests:
 // 1. Fixed: Time buckets e.g. per 60 seconds
 // 2. Sliding: Moving buckets e.g. last 60 seconds from now
 // 3. Rolling/Token Bucket: Each request uses a token and refills over time

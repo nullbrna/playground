@@ -85,6 +85,7 @@ impl HandlerState {
             .await
             .expect("Opening first pool connection");
 
+        #[cfg(not(test))]
         sqlx::migrate!()
             .run(&pool)
             .await

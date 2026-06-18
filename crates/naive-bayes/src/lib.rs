@@ -20,12 +20,12 @@ struct NaiveBayes {
 impl NaiveBayes {
     fn train(&mut self, features: [usize; NUM_FEATURES], class: usize) {
         // Increment the corresponding class's and the overall sample count.
-        // NOTE: Assume the class is either 0 or 1.
+        // NOTE: Assume the class is either: 0 or 1.
         self.class_occurrences[class] += 1;
         self.sample_size += 1;
 
         // Increment the given value for the feature under the given class.
-        // NOTE: Assume each entry is <= max value count - 1.
+        // NOTE: Assume each entry is less or equal: max value count - 1.
         for feature in 0..NUM_FEATURES {
             let value = features[feature];
             self.counts[class][feature][value] += 1;
