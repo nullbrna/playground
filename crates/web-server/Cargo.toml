@@ -5,10 +5,12 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-axum = "0.8.9"
+axum = { version = "0.8.9", features = ["ws"] }
+futures-util = "0.3.32"
 redis = { version = "1.2.1", features = ["connection-manager", "tokio-comp"] }
 sqlx = { version = "0.8.6", features = ["migrate", "postgres", "runtime-tokio-rustls"] }
 tokio = { version = "1.52.1", features = ["rt-multi-thread"] }
+tokio-tungstenite = "0.29.0"
 tracing = { version = "0.1.44", features = ["release_max_level_info"] }
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 

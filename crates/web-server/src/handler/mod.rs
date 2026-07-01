@@ -12,6 +12,7 @@ use sqlx::postgres::PgPoolOptions;
 
 pub mod idempotency;
 pub mod ratelimiter;
+pub mod websocket;
 
 #[cfg(any(feature = "testing", test))]
 const TEST_ID_HEADER_KEY: &str = "X-Test-Identifier";
@@ -63,10 +64,10 @@ impl From<redis::RedisError> for HandlerError {
 
 #[derive(Clone)]
 pub struct HandlerState {
-    /// Connection pool for Postgres.
+    /// Connection pool for "Postgres".
     /// NOTE: [`PgPool`] is an [`std::sync::Arc`].
     pool: PgPool,
-    /// Connection to Redis. Automatically reconnects when needed.
+    /// Connection to "Redis". Automatically reconnects when needed.
     /// NOTE: [`redis::aio::ConnectionManager`] is an [`std::sync::Arc`].
     redis: ConnectionManager,
 }

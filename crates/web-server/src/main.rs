@@ -31,6 +31,7 @@ async fn create_configured_router() -> IntoMakeServiceWithConnectInfo<Router, So
         .route("/", get(handler::index))
         .route("/idempotency", post(handler::idempotency::core))
         .route("/rate-limiter", get(handler::ratelimiter::core))
+        .route("/ws", get(handler::websocket::core))
         .layer(middleware)
         .with_state(state)
         .into_make_service_with_connect_info::<SocketAddr>();

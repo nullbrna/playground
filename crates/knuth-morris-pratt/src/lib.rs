@@ -1,4 +1,4 @@
-// Compute the LPS (Longest Prefix Suffix) array for a given pattern.
+// Compute the LPS ("Longest Prefix Suffix") array for a given pattern.
 //
 // Find the pattern with both a prefix and a suffix, storing the length of
 // full/partial matches. The length of the calculated LPS array is equal to the
@@ -55,7 +55,7 @@ fn find_pattern_start_index(source: &str, pattern: &str) -> Option<usize> {
             source_index += 1;
             pattern_index += 1;
 
-            // Success state. Full pattern matched. Return the difference
+            // Success state, full pattern matched. Return the difference
             // between our end position of the match and the pattern length.
             if pattern_index == pattern.len() {
                 return Some(source_index - pattern_index);
@@ -64,7 +64,7 @@ fn find_pattern_start_index(source: &str, pattern: &str) -> Option<usize> {
             continue;
         }
 
-        // Mismatch part-way through a pattern match. Use the calculated LPS to
+        // Mismatch partway through a pattern match. Use the calculated LPS to
         // skip wasted pattern comparisons.
         if pattern_index != 0 {
             pattern_index = lps[pattern_index - 1];

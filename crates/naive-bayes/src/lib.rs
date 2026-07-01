@@ -8,7 +8,8 @@ const MAX_VALUE_COUNT: usize = 3;
 
 #[derive(Default)]
 struct NaiveBayes {
-    /// Count of samples per-class (0 = No, 1 = Yes).
+    /// Count of samples per-class.
+    // NOTE: 0 = No, 1 = Yes.
     class_occurrences: [usize; NUM_CLASSES],
     /// Amount of a given value for a feature, per-class.
     counts: [[[usize; MAX_VALUE_COUNT]; NUM_FEATURES]; NUM_CLASSES],
@@ -19,13 +20,13 @@ struct NaiveBayes {
 #[allow(unused)]
 impl NaiveBayes {
     fn train(&mut self, features: [usize; NUM_FEATURES], class: usize) {
-        // Increment the corresponding class's and the overall sample count.
-        // NOTE: Assume the class is either: 0 or 1.
+        // Increment the corresponding class' and the overall sample count.
+        // NOTE: Assumes the class is either 0 or 1.
         self.class_occurrences[class] += 1;
         self.sample_size += 1;
 
-        // Increment the given value for the feature under the given class.
-        // NOTE: Assume each entry is less or equal: max value count - 1.
+        // Increment the given value for the class' feature.
+        // NOTE: Assume each entry is less or equal to the max value count - 1.
         for feature in 0..NUM_FEATURES {
             let value = features[feature];
             self.counts[class][feature][value] += 1;
@@ -44,7 +45,7 @@ impl NaiveBayes {
 
             for feature in 0..NUM_FEATURES {
                 let value = features[feature];
-                // Laplace smoothing. If we come across a value for a feature
+                // "Laplace Smoothing", if we come across a value for a feature
                 // that we haven't yet seen for this class, incrementing avoids
                 // a 0 ensuring an unlikely but possible prediction.
                 let count = self.counts[class][feature][value] as f64 + 1.0;

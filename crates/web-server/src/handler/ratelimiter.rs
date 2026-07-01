@@ -23,8 +23,8 @@ const LIMIT_COUNT: i64 = 10;
 // TTL (seconds) for a key.
 const LIMIT_WINDOW: i64 = 2;
 
-const FIRST_TEXT: &str = "LIMIT_FIRST";
-const ONGOING_TEXT: &str = "LIMIT_ONGOING";
+const STARTED_LIMITER_TEXT: &str = "LIMIT_FIRST";
+const LIMITER_ONGOING_TEXT: &str = "LIMIT_ONGOING";
 
 pub async fn core(
     Extension(identifier): Extension<String>,
@@ -46,23 +46,23 @@ pub async fn core(
         .await?;
 
     if count > LIMIT_COUNT {
-        tracing::error!(addr = %ip_addr, "[RATE_LIMITER] Suspended for exceeding limit");
+        tracing::error!(%ip_addr, "[RATE_LIMITER] Suspended for exceeding limit");
         return Err(StatusCode::TOO_MANY_REQUESTS)?;
     } else if count == 1 {
-        tracing::info!(addr = %ip_addr, "[RATE_LIMITER] Request window started");
-        return Ok((StatusCode::OK, FIRST_TEXT));
+        tracing::info!(%ip_addr, "[RATE_LIMITER] Request window started");
+        return Ok((StatusCode::OK, STARTED_LIMITER_TEXT));
     }
 
-    Ok((StatusCode::OK, ONGOING_TEXT))
+    Ok((StatusCode::OK, LIMITER_ONGOING_TEXT))
 }
 
 #[cfg(test)]
 mod tests {
     use crate::handler::HandlerState;
     use crate::handler::TEST_ID_HEADER_KEY;
-    use crate::handler::ratelimiter::FIRST_TEXT;
     use crate::handler::ratelimiter::LIMIT_COUNT;
-    use crate::handler::ratelimiter::ONGOING_TEXT;
+    use crate::handler::ratelimiter::LIMITER_ONGOING_TEXT;
+    use crate::handler::ratelimiter::STARTED_LIMITER_TEXT;
 
     use axum::http::StatusCode;
     use reqwest::Client;
@@ -87,7 +87,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = response.text().await.expect("Parsing first response body");
-        assert_eq!(body, FIRST_TEXT);
+        assert_eq!(body, STARTED_LIMITER_TEXT);
     }
 
     #[tokio::test]
@@ -104,7 +104,7 @@ mod tests {
                 .await
                 .expect("Parsing ongoing response body");
 
-            assert_eq!(body, ONGOING_TEXT);
+            assert_eq!(body, LIMITER_ONGOING_TEXT);
         }
     }
 

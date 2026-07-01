@@ -4,6 +4,7 @@
 
 ```sh
 docker compose up
+
 # The tests require environment variables so it may be easier to logon.
 docker exec -it web-server-server-1 sh
 ```

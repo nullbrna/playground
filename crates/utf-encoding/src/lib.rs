@@ -1,9 +1,9 @@
-// UTF-8 (Unicode Transformation Format)
+// UTF-8 ("Unicode Transformation Format")
 //
-// 0xxxxxxx - Single ASCII character (fits in 128 bits. MSB is zero)
-// 110xxxxx 10xxxxxx - 2-byte character (latin-1) e.g. ñ
-// 1110xxxx 10xxxxxx 10xxxxxx - 3-byte character e.g. €
-// 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx - 4-byte character e.g. 😀
+// 0xxxxxxx: Single ASCII character - fits in 128 bits, the MSB is zero
+// 110xxxxx 10xxxxxx: 2-byte character - "latin1" e.g. ñ
+// 1110xxxx 10xxxxxx 10xxxxxx: 3-byte character e.g. €
+// 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx: 4-byte character e.g. 😀
 //
 // The payload (code point) of each UTF-8 character can be classified as the
 // non-metadata bits i.e. all BUT the leading length and continuation bits.

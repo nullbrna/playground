@@ -1,5 +1,4 @@
-// Find the first occurrence of a pattern within a string using the BM
-// (Boyer-Moore) algorithm.
+// Find the first occurrence of a pattern within a string using "Boyer Moore".
 //
 // Compare characters right to left, using the "Bad Character" rule. Mismatches
 // allow for the iterator to skip forward based on the last occurrence of said
@@ -28,7 +27,6 @@ fn find_pattern_start_index(source: &str, pattern: &str) -> Option<usize> {
     }
 
     let mut skipped = 0;
-
     while skipped <= source_length - pattern_length {
         let mut offset = (pattern_length - 1) as i32;
 

@@ -18,8 +18,8 @@ use crate::handler::HandlerState;
 
 const IDEMPOTENCY_HEADER_KEY: &str = "Idempotency-Key";
 
-const HIT_TEXT: &str = "CACHE_HIT";
-const MISS_TEXT: &str = "CACHE_MISS";
+const SUCCESS_TEXT: &str = "RESPONSE_FOUND";
+const FAILURE_TEXT: &str = "RESPONSE_SET";
 
 pub async fn core(
     Extension(identifier): Extension<String>,
@@ -41,16 +41,16 @@ pub async fn core(
         let decoded_status = u16::try_from(cached_status).map_err(anyhow::Error::from)?;
         let status_code = StatusCode::from_u16(decoded_status).map_err(anyhow::Error::from)?;
 
-        tracing::debug!(key, "[IDEMPOTENCY] Cache hit");
-        return Ok((status_code, HIT_TEXT));
+        tracing::debug!(key, "[IDEMPOTENCY] Stored response found");
+        return Ok((status_code, SUCCESS_TEXT));
     };
 
     // At this point, we haven't got the key cached so set a fresh one. Best to
     // perform any read or write operations AFTER this has successfully run.
     insert_status_by_key(&state.pool, &identifier, key).await?;
-    tracing::debug!(key, "[IDEMPOTENCY] Cache miss");
+    tracing::debug!(key, "[IDEMPOTENCY] No response stored");
 
-    Ok((StatusCode::CREATED, MISS_TEXT))
+    Ok((StatusCode::CREATED, FAILURE_TEXT))
 }
 
 async fn find_status_by_key(
@@ -100,9 +100,9 @@ async fn insert_status_by_key(pool: &PgPool, identifier: &str, key: &str) -> Han
 mod tests {
     use crate::handler::HandlerState;
     use crate::handler::TEST_ID_HEADER_KEY;
-    use crate::handler::idempotency::HIT_TEXT;
+    use crate::handler::idempotency::FAILURE_TEXT;
     use crate::handler::idempotency::IDEMPOTENCY_HEADER_KEY;
-    use crate::handler::idempotency::MISS_TEXT;
+    use crate::handler::idempotency::SUCCESS_TEXT;
 
     use axum::http::StatusCode;
     use reqwest::Client;
@@ -142,7 +142,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::CREATED);
 
         let body = response.text().await.expect("Parsing fresh response body");
-        assert_eq!(body, MISS_TEXT);
+        assert_eq!(body, FAILURE_TEXT);
     }
 
     #[tokio::test]
@@ -154,6 +154,6 @@ mod tests {
         assert_eq!(response.status(), StatusCode::CREATED);
 
         let body = response.text().await.expect("Parsing cached response body");
-        assert_eq!(body, HIT_TEXT);
+        assert_eq!(body, SUCCESS_TEXT);
     }
 }
