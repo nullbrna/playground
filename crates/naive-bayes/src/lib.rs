@@ -3,7 +3,7 @@ const NUM_FEATURES: usize = 4;
 /// Discrete values each feature can hold.
 const FEATURE_SET: [usize; NUM_FEATURES] = [3, 3, 2, 2];
 /// Maximum number of values any feature can take.
-/// NOTE: Specified for a fixed-size array.
+// NOTE: Specified for a fixed-size array.
 const MAX_VALUE_COUNT: usize = 3;
 
 #[derive(Default)]

@@ -16,9 +16,12 @@ use crate::handler::HandlerError;
 use crate::handler::HandlerResult;
 use crate::handler::HandlerState;
 
+/// HTTP standard key used for idempotency identifiers.
 const IDEMPOTENCY_HEADER_KEY: &str = "Idempotency-Key";
 
+/// Found record stored against the idempotency key.
 const SUCCESS_TEXT: &str = "RESPONSE_FOUND";
+/// No record stored against the idempotency key, one is set.
 const FAILURE_TEXT: &str = "RESPONSE_SET";
 
 pub async fn core(
@@ -41,14 +44,14 @@ pub async fn core(
         let decoded_status = u16::try_from(cached_status).map_err(anyhow::Error::from)?;
         let status_code = StatusCode::from_u16(decoded_status).map_err(anyhow::Error::from)?;
 
-        tracing::debug!(key, "[IDEMPOTENCY] Stored response found");
+        tracing::debug!(key, "Stored response found");
         return Ok((status_code, SUCCESS_TEXT));
     };
 
     // At this point, we haven't got the key cached so set a fresh one. Best to
     // perform any read or write operations AFTER this has successfully run.
     insert_status_by_key(&state.pool, &identifier, key).await?;
-    tracing::debug!(key, "[IDEMPOTENCY] No response stored");
+    tracing::debug!(key, "No response stored");
 
     Ok((StatusCode::CREATED, FAILURE_TEXT))
 }

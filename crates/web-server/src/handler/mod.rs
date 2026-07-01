@@ -29,7 +29,7 @@ impl IntoResponse for HandlerError {
 impl From<StatusCode> for HandlerError {
     fn from(value: StatusCode) -> Self {
         if value.is_server_error() || value.is_client_error() {
-            tracing::warn!(code = ?value, "Negative status code returned");
+            tracing::debug!(code = ?value, "Negative status code returned");
         }
 
         Self(value)
@@ -65,10 +65,10 @@ impl From<redis::RedisError> for HandlerError {
 #[derive(Clone)]
 pub struct HandlerState {
     /// Connection pool for "Postgres".
-    /// NOTE: [`PgPool`] is an [`std::sync::Arc`].
+    // NOTE: [`PgPool`] is an [`std::sync::Arc`].
     pool: PgPool,
     /// Connection to "Redis". Automatically reconnects when needed.
-    /// NOTE: [`redis::aio::ConnectionManager`] is an [`std::sync::Arc`].
+    // NOTE: [`redis::aio::ConnectionManager`] is an [`std::sync::Arc`].
     redis: ConnectionManager,
 }
 
@@ -105,7 +105,7 @@ impl HandlerState {
         use uuid::Uuid;
 
         let state = Self::new().await;
-        let identifier = Uuid::new_v4().to_string();
+        let identifier = String::from(Uuid::new_v4());
 
         // 1. Create an isolated schema for the current test by the unique ID.
         let statement = format!("CREATE SCHEMA IF NOT EXISTS \"{identifier}\"");

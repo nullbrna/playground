@@ -12,10 +12,11 @@ use crate::handler::HandlerState;
 mod handler;
 
 fn setup_environment() -> String {
-    let env_filter = EnvFilter::from_default_env();
     tracing_subscriber::fmt()
-        .with_env_filter(env_filter)
-        .with_target(false)
+        .with_env_filter(EnvFilter::from_default_env())
+        .pretty()
+        .with_file(false)
+        .with_line_number(false)
         .compact()
         .init();
 

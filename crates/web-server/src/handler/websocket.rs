@@ -1,5 +1,3 @@
-use axum::Extension;
-use axum::extract::State;
 use axum::extract::WebSocketUpgrade;
 use axum::extract::ws::Message;
 use axum::extract::ws::Utf8Bytes;
@@ -7,35 +5,42 @@ use axum::extract::ws::WebSocket;
 use axum::response::IntoResponse;
 use futures_util::StreamExt;
 
-use crate::handler::HandlerState;
+/// Default response for a "text" message.
+const TEXT_REPLY: &str = "Hello, world!";
 
-pub async fn core(
-    ws_handler: WebSocketUpgrade,
-    Extension(identifier): Extension<String>,
-    State(state): State<HandlerState>,
-) -> impl IntoResponse {
-    ws_handler.on_upgrade(move |socket| upgrade_handler(socket, identifier, state))
+pub async fn core(upgrader: WebSocketUpgrade) -> impl IntoResponse {
+    upgrader
+        .on_failed_upgrade(|err| tracing::error!(%err, "Upgrading request"))
+        // NOTE: Here onward, the connection is a "WebSocket", so the usual
+        // handler returns no longer work i.e. HTTP status codes.
+        .on_upgrade(upgrade_handler)
 }
 
-async fn upgrade_handler(mut socket: WebSocket, identifier: String, state: HandlerState) {
-    while let Some(Ok(message)) = socket.next().await {
-        if let Message::Close(frame) = message {
-            tracing::debug!(?frame, "[WEBSOCKET] Received closure frame");
+async fn upgrade_handler(mut socket: WebSocket) {
+    while let Some(message) = socket.next().await {
+        // Can be I/O or protocol related errors i.e. malformed frames but is
+        // commonly an informal closure without a close frame.
+        if let Err(err) = message {
+            tracing::error!(%err, "Receiving socket message");
             break;
         }
 
-        if let Message::Text(text) = message {
-            text_frame_handler(&mut socket, text).await;
+        if let Ok(Message::Text(text)) = message {
+            text_message_handler(&mut socket, text).await;
+        } else if let Ok(Message::Close(frame)) = message {
+            tracing::info!(?frame, "Received close frame");
+            // NOTE: If needed, a close frame is sent back automatically for us.
+            break;
         }
     }
 }
 
-async fn text_frame_handler(socket: &mut WebSocket, text: Utf8Bytes) {
-    tracing::debug!(%text, "[WEBSOCKET] Received text");
+async fn text_message_handler(socket: &mut WebSocket, text: Utf8Bytes) {
+    tracing::info!(%text, "Received \"text\" message");
 
-    let response = Utf8Bytes::from_static("Hello, world!");
-    if let Err(err) = socket.send(Message::Text(response)).await {
-        tracing::error!(%err, "[WEBSOCKET] Sending text response");
+    let reply = Utf8Bytes::from_static(TEXT_REPLY);
+    if let Err(err) = socket.send(Message::Text(reply)).await {
+        tracing::error!(%err, "Sending text reply");
     }
 }
 
@@ -43,6 +48,7 @@ async fn text_frame_handler(socket: &mut WebSocket, text: Utf8Bytes) {
 mod tests {
     use crate::handler::HandlerState;
     use crate::handler::TEST_ID_HEADER_KEY;
+    use crate::handler::websocket::TEXT_REPLY;
 
     use axum::http::HeaderValue;
     use axum::http::StatusCode;
@@ -61,12 +67,9 @@ mod tests {
 
     async fn connect_socket(identifier: &str) -> WebSocketStream<MaybeTlsStream<TcpStream>> {
         let mut request = ENDPOINT.into_client_request().expect("Building request");
-        let identifier_header = HeaderValue::from_str(identifier).expect("Parsing identifier");
+        let identifier = HeaderValue::from_str(identifier).expect("Parsing identifier");
 
-        request
-            .headers_mut()
-            .insert(TEST_ID_HEADER_KEY, identifier_header);
-
+        request.headers_mut().insert(TEST_ID_HEADER_KEY, identifier);
         let (socket, response) = tokio_tungstenite::connect_async(request)
             .await
             .expect("Connecting to socket");
@@ -80,20 +83,20 @@ mod tests {
         let identifier = HandlerState::setup_for_test().await;
         let mut socket = connect_socket(&identifier).await;
 
-        let body = Utf8Bytes::from_static("Hello");
+        let payload = Utf8Bytes::from_static("Hello");
         socket
-            .send(Message::Text(body))
+            .send(Message::Text(payload))
             .await
-            .expect("Sending text body");
+            .expect("Sending text payload");
 
         let message = socket
             .next()
             .await
             .expect("Iterating over stream")
-            .expect("Unwrapping stream item");
+            .expect("Unwrapping stream message");
 
-        let response = Utf8Bytes::from_static("Hello, world!");
-        assert_eq!(message, Message::Text(response));
+        let reply = Utf8Bytes::from_static(TEXT_REPLY);
+        assert_eq!(message, Message::Text(reply));
     }
 
     #[tokio::test]
@@ -106,13 +109,13 @@ mod tests {
             .await
             .expect("Sending close frame");
 
-        let body = Utf8Bytes::from_static("Goodbye");
-        let response = socket
-            .send(Message::Text(body))
+        let payload = Utf8Bytes::from_static("Goodbye");
+        let err = socket
+            .send(Message::Text(payload))
             .await
             .expect_err("Sending to a closed socket");
 
-        let has_closed = matches!(response, Error::Protocol(ProtocolError::SendAfterClosing));
+        let has_closed = matches!(err, Error::Protocol(ProtocolError::SendAfterClosing));
         assert!(has_closed);
     }
 }
