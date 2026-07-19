@@ -1,20 +1,17 @@
+use std::net::SocketAddr;
+
+use axum::extract::ConnectInfo;
 use axum::extract::Request;
-#[cfg(feature = "testing")]
-use axum::http::HeaderMap;
+use axum::extract::State;
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::IntoResponse;
 use axum::response::Response;
 use redis::Client;
+use redis::RedisError;
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
-
-pub mod idempotency;
-pub mod ratelimiter;
-
-#[cfg(any(feature = "testing", test))]
-const TEST_ID_HEADER_KEY: &str = "X-Test-Identifier";
 
 pub struct HandlerError(StatusCode);
 type HandlerResult<T> = Result<T, HandlerError>;
@@ -27,13 +24,17 @@ impl IntoResponse for HandlerError {
 
 impl From<StatusCode> for HandlerError {
     fn from(value: StatusCode) -> Self {
+        if value.is_server_error() || value.is_client_error() {
+            tracing::warn!(code = ?value, "Negative status code returned");
+        }
+
         Self(value)
     }
 }
 
 impl From<anyhow::Error> for HandlerError {
     fn from(value: anyhow::Error) -> Self {
-        tracing::error!("[UNEXPECTED] {value}");
+        tracing::error!(err = %value, "[UNEXPECTED]");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
@@ -45,91 +46,88 @@ impl From<sqlx::Error> for HandlerError {
             return Self(StatusCode::OK);
         }
 
-        tracing::error!("[DATABASE] {value}");
+        tracing::error!(err = %value, "[DATABASE]");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
 
-impl From<redis::RedisError> for HandlerError {
-    fn from(value: redis::RedisError) -> Self {
-        tracing::error!("[REDIS] {value}");
+impl From<RedisError> for HandlerError {
+    fn from(value: RedisError) -> Self {
+        tracing::error!(err = %value, "[REDIS]");
         Self(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct HandlerState {
-    /// Connection pool for Postgres.
-    /// NOTE: [`PgPool`] under-the-hood is an [`std::sync::Arc`].
-    pool: PgPool,
-    /// Connection to Redis. Automatically reconnects when needed.
-    redis: ConnectionManager,
+    pool:  PgPool,
+    cache: ConnectionManager,
 }
 
 impl HandlerState {
-    pub async fn new() -> anyhow::Result<Self> {
-        let database_resource = std::env::var("DATABASE_URL")?;
-        let redis_resource = std::env::var("REDIS_URL")?;
+    /// NOTE: Will panic for a missing environment variable. Ensure this only
+    /// runs during startup so any panic is immediate and not at "runtime".
+    pub async fn new() -> Self {
+        let dburi = std::env::var("DATABASE_URI").expect("Missing \"DATABASE_URI\" variable");
+        let cacheuri = std::env::var("REDIS_URI").expect("Missing \"REDIS_URI\" variable");
 
-        // Tests need a dedicated connection. Tests run in parallel so each
-        // schema setup could overwrite the search path & create data races.
-        let connection_count = if cfg!(test) { 1 } else { 10 };
         let pool = PgPoolOptions::new()
-            .max_connections(connection_count)
-            .connect(&database_resource)
-            .await?;
+            .max_connections(25)
+            .min_connections(5)
+            .connect(&dburi)
+            .await
+            .expect("Opening first pool connection");
 
-        sqlx::migrate!().run(&pool).await?;
+        let client = Client::open(cacheuri).expect("Validating cache connection URI");
+        let cache = ConnectionManager::new(client)
+            .await
+            .expect("Initialising cache connection");
 
-        let client = Client::open(redis_resource)?;
-        let redis = ConnectionManager::new(client).await?;
-
-        Ok(Self { pool, redis })
+        Self { pool, cache }
     }
+}
 
-    #[cfg(test)]
-    async fn setup_for_test() -> anyhow::Result<String> {
-        use uuid::Uuid;
-
-        let state = Self::new().await?;
-        let identifier = Uuid::new_v4().to_string();
-
-        // 1. Create an isolated schema for the current test by the unique ID.
-        let statement = format!("CREATE SCHEMA IF NOT EXISTS \"{}\"", identifier);
-        sqlx::query(&statement).execute(&state.pool).await?;
-
-        // 2. Pin all subsequent queries to the schema.
-        let statement = format!("SET search_path TO \"{}\"", identifier);
-        sqlx::query(&statement).execute(&state.pool).await?;
-
-        // 3. Apply migrations into the schema.
-        sqlx::migrate!().run(&state.pool).await?;
-
-        Ok(identifier)
-    }
+pub async fn index(State(state): State<HandlerState>) -> impl IntoResponse {
+    tracing::debug!(?state, "Handler state");
+    "Hello, world!"
 }
 
 pub async fn middleware(
-    #[cfg(feature = "testing")] headers: HeaderMap,
-    mut request: Request,
+    ConnectInfo(info): ConnectInfo<SocketAddr>,
+    request: Request,
     next: Next,
-) -> HandlerResult<impl IntoResponse> {
-    #[cfg(feature = "testing")]
-    if let Some(header) = headers.get(TEST_ID_HEADER_KEY)
-        && let Ok(header_value) = header.to_str()
-    {
-        let identifier = String::from(header_value);
-        request.extensions_mut().insert(identifier);
-
-        return Ok(next.run(request).await);
-    }
-
-    let identifier = String::from("public");
-    request.extensions_mut().insert(identifier);
-
-    Ok(next.run(request).await)
+) -> impl IntoResponse {
+    tracing::trace!(addr = %info.ip(), "Middleware hit");
+    next.run(request).await
 }
 
-pub async fn index() -> HandlerResult<impl IntoResponse> {
-    Ok("Hello, world!")
+#[cfg(test)]
+mod tests {
+    use axum::http::StatusCode;
+    use reqwest::Client;
+    use reqwest::Response;
+
+    const ENDPOINT: &str = "http://localhost:8080/";
+
+    async fn make_request() -> Response {
+        Client::new()
+            .get(ENDPOINT)
+            .send()
+            .await
+            .expect("Sending HTTP request")
+    }
+
+    #[tokio::test]
+    async fn should_200_status_code() {
+        let response = make_request().await;
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn should_return_string_body() {
+        let response = make_request().await;
+        let body = response.text().await.expect("Decoding response body");
+
+        assert_eq!(body, "Hello, world!");
+    }
 }

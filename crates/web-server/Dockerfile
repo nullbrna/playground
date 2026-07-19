@@ -1,13 +1,27 @@
-FROM rust:alpine
+FROM rust:alpine AS development
+
+WORKDIR /app
+
+# Install dependencies for building and hot reloading.
+RUN apk add --no-cache musl-dev
+RUN cargo install cargo-watch
+
+CMD ["cargo", "watch", "-x", "run"]
+
+FROM rust:alpine AS builder
+
 WORKDIR /app
 
 RUN apk add --no-cache musl-dev
 
-COPY Cargo* .
-COPY src    ./src
+# Build a release binary. Creates a fresh ".lock" file.
+COPY Cargo.toml .
+COPY src        ./src
 
-RUN cargo install cargo-watch
+RUN cargo build --release
 
-ENV MODE=local
-# Add the feature for test-only logic if needed. Run with hot-reloading.
-CMD ["sh", "-c", "if [ \"$MODE\" = \"testing\" ]; then cargo watch -x 'run --features testing'; else cargo watch -x run; fi"]
+FROM scratch AS release
+
+COPY --from=builder /app/target/release/web-server /web-server
+
+CMD ["/web-server"]

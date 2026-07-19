@@ -1,0 +1,50 @@
+x-server-common: &server-common
+    depends_on:
+        - database
+        - redis
+    ports:
+        - "8080:8080"
+    build:
+        context: .
+
+x-server-environment: &server-environment
+    PORT: 8080
+    DATABASE_URI: postgres://admin:password@database:5432/playground
+    REDIS_URI: redis://redis:6379
+
+services:
+    database:
+        image: postgres:14-alpine
+        ports:
+            - "5432:5432"
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: password
+            POSTGRES_DB: playground
+
+    redis:
+        image: redis:7-alpine
+        ports:
+            - "6379:6379"
+
+    server-development:
+        <<: *server-common
+        profiles:
+            - development
+        build:
+            target: development
+        environment:
+            <<: *server-environment
+            RUST_LOG: trace,sqlx=warn,axum::serve=info
+        volumes:
+            - ./src:/app/src
+
+    server-release:
+        <<: *server-common
+        profiles:
+            - release
+        build:
+            target: release
+        environment:
+            <<: *server-environment
+            RUST_LOG: info,sqlx=warn,axum::serve=info
