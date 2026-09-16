@@ -1,0 +1,20 @@
+services:
+    database:
+        image: postgres:14-alpine
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: password
+            POSTGRES_DB: playground
+
+    server:
+        build:
+            context: .
+        ports:
+            - 8080:8080
+        environment:
+            PORT: 8080
+            RUST_LOG: trace,sqlx=warn,axum::serve=info
+            DATABASE_URI: postgres://admin:password@database:5432/playground
+        volumes:
+            - ./src:/app/src
+            - ./Cargo.toml:/app/Cargo.toml
