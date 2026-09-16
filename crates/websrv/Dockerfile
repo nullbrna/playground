@@ -7,4 +7,4 @@ WORKDIR /app
 RUN apk add --no-cache musl-dev
 RUN cargo install cargo-watch
 
-CMD ["cargo", "watch", "-x", "run"]
+CMD ["cargo", "watch", "--quiet", "-x", "run --quiet"]

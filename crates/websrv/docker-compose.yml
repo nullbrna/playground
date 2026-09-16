@@ -1,10 +1,12 @@
 services:
     database:
-        image: postgres:14-alpine
+        image: postgres:latest
         environment:
             POSTGRES_USER: admin
             POSTGRES_PASSWORD: password
             POSTGRES_DB: playground
+        volumes:
+            - ./config/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
 
     server:
         build:
@@ -18,3 +20,31 @@ services:
         volumes:
             - ./src:/app/src
             - ./Cargo.toml:/app/Cargo.toml
+
+    loki:
+        image: grafana/loki:latest
+
+    grafana:
+        image: grafana/grafana:latest
+        ports:
+            - 3000:3000
+        environment:
+            GF_AUTH_ANONYMOUS_ENABLED: "true"
+            GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+            GF_AUTH_DISABLE_LOGIN_FORM: "true"
+        volumes:
+            - ./config/loki.yml:/etc/grafana/provisioning/datasources/loki.yml:ro
+        depends_on:
+            - loki
+
+    alloy:
+        image: grafana/alloy:latest
+        command:
+            - run
+            - /etc/alloy/config.alloy
+        volumes:
+            - ./config/config.alloy:/etc/alloy/config.alloy:ro
+            # NOTE: Socket exposure for reading Docker data/logs.
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        depends_on:
+            - loki

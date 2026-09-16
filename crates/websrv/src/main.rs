@@ -1,8 +1,7 @@
-use std::net::SocketAddr;
-
 use axum::Router;
-use axum::extract::connect_info::IntoMakeServiceWithConnectInfo;
+use axum::routing::IntoMakeService;
 use tokio::net::TcpListener;
+use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
 use crate::handler::HandlerState;
@@ -12,11 +11,10 @@ mod handler;
 /// NOTE: Can panic. Ensure this ONLY runs during startup.
 fn setup_environment() -> String {
     let filter = EnvFilter::from_default_env();
-
     tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_file(false)
-        .compact()
+        .json()
         .init();
 
     let port = std::env::var("PORT").expect("Missing \"PORT\" variable");
@@ -25,15 +23,21 @@ fn setup_environment() -> String {
     format!("0.0.0.0:{port}")
 }
 
-async fn create_configured_router() -> IntoMakeServiceWithConnectInfo<Router, SocketAddr> {
+async fn create_configured_router() -> IntoMakeService<Router> {
     let state = HandlerState::new().await;
+
     let middleware = axum::middleware::from_fn(handler::middleware);
+    let tracing = TraceLayer::new_for_http()
+        .on_request(())
+        .on_body_chunk(())
+        .on_eos(());
 
     Router::new()
         .route("/", axum::routing::get(handler::index))
         .layer(middleware)
+        .layer(tracing)
         .with_state(state)
-        .into_make_service_with_connect_info::<SocketAddr>()
+        .into_make_service()
 }
 
 #[tokio::main]
@@ -44,7 +48,7 @@ async fn main() {
         .expect("Binding to the host address");
 
     let router = create_configured_router().await;
-    tracing::debug!("Ready for connections");
+    tracing::debug!("Hello, world!");
 
     axum::serve(listener, router)
         .await

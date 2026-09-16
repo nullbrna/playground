@@ -1,0 +1,10 @@
+apiVersion: 1
+
+datasources:
+    - name: Loki
+      type: loki
+      access: proxy
+      editable: true
+      isDefault: true
+      # NOTE: Host name is equal to the Docker service name.
+      url: http://loki:3100

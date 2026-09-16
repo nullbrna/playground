@@ -1,0 +1,40 @@
+// Retrieve a list of running containers from Docker.
+// NOTE: Relies on the socket mounted in Docker.
+discovery.docker "containers" {
+    host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+    targets = discovery.docker.containers.targets
+
+    // Filter the containers retrieved above. Only keep the service where we
+    // want to see logs. Disregard logs from Loki, Grafana, and PG etc.
+    rule {
+        source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+        // NOTE: Regex target is equal to the Docker service name.
+        regex         = "server"
+        action        = "keep"
+    }
+
+    // Copy the service name e.g. { service = "foo" } into Loki to be queried.
+    rule {
+        source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label  = "service"
+    }
+}
+
+// Read and redirect every log from the filtered list above. Logs from the
+// filtered service go to the Loki writer.
+loki.source.docker "containers" {
+    host       = "unix:///var/run/docker.sock"
+    targets    = discovery.relabel.containers.output
+    forward_to = [loki.write.default.receiver]
+}
+
+// Define the destination for the above redirected logs.
+loki.write "default" {
+    endpoint {
+        // NOTE: Host name is equal to the Docker service name.
+        url = "http://loki:3100/loki/api/v1/push"
+    }
+}

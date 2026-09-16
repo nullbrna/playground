@@ -1,8 +1,4 @@
-use std::net::SocketAddr;
-
-use axum::extract::ConnectInfo;
 use axum::extract::Request;
-use axum::extract::State;
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::IntoResponse;
@@ -21,10 +17,6 @@ impl IntoResponse for HandlerError {
 
 impl From<StatusCode> for HandlerError {
     fn from(value: StatusCode) -> Self {
-        if value.is_server_error() || value.is_client_error() {
-            tracing::trace!(code = ?value, "Negative status code returned");
-        }
-
         Self(value)
     }
 }
@@ -57,7 +49,6 @@ impl HandlerState {
     /// NOTE: Can panic. Ensure this ONLY runs during startup.
     pub async fn new() -> Self {
         let db_uri = std::env::var("DATABASE_URI").expect("Missing \"DATABASE_URI\" variable");
-
         let pool = PgPoolOptions::new()
             .max_connections(25)
             .min_connections(5)
@@ -69,17 +60,11 @@ impl HandlerState {
     }
 }
 
-pub async fn index(State(state): State<HandlerState>) -> impl IntoResponse {
-    tracing::debug!(pool = ?state.pool, "Handler state");
-    "Hello, world!"
+pub async fn index() -> HandlerResult<&'static str> {
+    Ok("Hello, world!")
 }
 
-pub async fn middleware(
-    ConnectInfo(info): ConnectInfo<SocketAddr>,
-    request: Request,
-    next: Next,
-) -> impl IntoResponse {
-    tracing::trace!(addr = %info.ip(), "Middleware hit");
+pub async fn middleware(request: Request, next: Next) -> impl IntoResponse {
     next.run(request).await
 }
 
@@ -89,7 +74,7 @@ mod tests {
     use reqwest::Client;
     use reqwest::Response;
 
-    const ENDPOINT: &str = "http://localhost:8080/";
+    const ENDPOINT: &str = "http://localhost:8080";
 
     async fn make_request() -> Response {
         Client::new().get(ENDPOINT).send().await.unwrap()
