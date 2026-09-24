@@ -6,6 +6,8 @@ use axum::response::Response;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 
+pub mod sock;
+
 pub struct HandlerError(StatusCode);
 type HandlerResult<T> = Result<T, HandlerError>;
 

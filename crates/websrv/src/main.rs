@@ -34,6 +34,7 @@ async fn create_configured_router() -> IntoMakeService<Router> {
 
     Router::new()
         .route("/", axum::routing::get(handler::index))
+        .route("/sock", axum::routing::get(handler::sock::core))
         .layer(middleware)
         .layer(tracing)
         .with_state(state)
@@ -48,7 +49,7 @@ async fn main() {
         .expect("Binding to the host address");
 
     let router = create_configured_router().await;
-    tracing::debug!("Hello, world!");
+    tracing::info!("Hello, world!");
 
     axum::serve(listener, router)
         .await

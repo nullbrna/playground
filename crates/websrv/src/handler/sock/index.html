@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Web Socket</title>
+    </head>
+    <body>
+        <script>
+            const socket = new WebSocket("ws://localhost:8080/sock");
+
+            socket.onopen = () => {
+                socket.send("ping");
+            };
+
+            socket.onmessage = () => {
+                console.log(event.data);
+            };
+        </script>
+    </body>
+</html>
