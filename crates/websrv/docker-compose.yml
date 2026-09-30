@@ -1,0 +1,24 @@
+services:
+    server:
+        build:
+            context: .
+        ports:
+            - 8080:8080
+        environment:
+            PORT: 8080
+            RUST_LOG: trace,tungstenite=warn,tokio_tungstenite=warn,sqlx=warn,axum::serve=warn
+            DATABASE_URI: postgres://admin:password@database:5432/playground
+        volumes:
+            - ./src:/app/src
+            - ./Cargo.toml:/app/Cargo.toml
+
+    database:
+        image: postgres:latest
+        ports:
+            - 5432:5432
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_PASSWORD: password
+            POSTGRES_DB: playground
+        volumes:
+            - ./seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
