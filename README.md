@@ -9,6 +9,6 @@ Experiments, learnings, and everything else unfinished.
 
 ## Running Tests
 
-| Module   | Command                        |
-| -------- | ------------------------------ |
-| `websrv` | `go test -count=1 ./tests/...` |
+| Module   | Test                           | Benchmark                      |
+| -------- | ------------------------------ | ------------------------------ |
+| `websrv` | `go test -count=1 ./tests/...` | `go test -bench=. ./tests/...` |

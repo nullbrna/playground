@@ -16,6 +16,7 @@ type Handler struct {
 
 func (this *Handler) Init(app *fiber.App, store *store.Store) {
 	this.store = store
+
 	app.Get("/ten-users", this.tenUsers)
 	app.Get("/user/:id", this.userById)
 	app.Get("/user-count", this.userCount)
@@ -54,11 +55,11 @@ func (this *Handler) userCount(reqCtx fiber.Ctx) error {
 	ctx, cancel := context.WithTimeout(reqCtx.RequestCtx(), 3*time.Second)
 	defer cancel()
 
-	count, code := this.store.GetUserCount(ctx)
+	userCount, code := this.store.GetUserCount(ctx)
 	if code != http.StatusOK {
 		return reqCtx.SendStatus(code)
 	}
 
-	countResponse := strconv.FormatInt(count, 10)
+	countResponse := strconv.FormatInt(userCount, 10)
 	return reqCtx.SendString(countResponse)
 }

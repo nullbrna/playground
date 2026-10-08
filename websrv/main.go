@@ -40,7 +40,7 @@ func init() {
 	zlog.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger().Level(logLevel)
 }
 
-func createAndPingStore() store.Store {
+func newAndInitStore() store.Store {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -77,7 +77,7 @@ func main() {
 	app := fiber.New()
 	app.Use(logMiddleware)
 
-	store := createAndPingStore()
+	store := newAndInitStore()
 	defer store.Close()
 
 	var handlers handler.Handler

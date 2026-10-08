@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strconv"
 	"testing"
 	"time"
 
@@ -12,14 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const url = "http://localhost:8080"
-
 var httpClient = http.Client{Timeout: 5 * time.Second}
 
-func callEndpoint(test *testing.T, path string) (int, []byte) {
+func callEndpoint(test testing.TB, endpoint string) (int, []byte) {
 	test.Helper()
 
-	response, err := httpClient.Get(url + path)
+	response, err := httpClient.Get("http://localhost:8080" + endpoint)
 	require.NoError(test, err)
 	defer response.Body.Close()
 
@@ -46,6 +43,17 @@ func TestTenUsers(test *testing.T) {
 	}
 }
 
+func BenchmarkTenUsers(bench *testing.B) {
+	status, _ := callEndpoint(bench, "/ten-users")
+	require.Equal(bench, http.StatusOK, status)
+
+	bench.ResetTimer()
+	for bench.Loop() {
+		status, _ := callEndpoint(bench, "/ten-users")
+		require.Equal(bench, http.StatusOK, status)
+	}
+}
+
 func TestUserByID(test *testing.T) {
 	status, body := callEndpoint(test, "/user/1")
 	require.Equal(test, http.StatusOK, status)
@@ -58,6 +66,17 @@ func TestUserByID(test *testing.T) {
 	require.Equal(test, "user-1@example.test", user.Email)
 }
 
+func BenchmarkUserById(bench *testing.B) {
+	status, _ := callEndpoint(bench, "/user/1")
+	require.Equal(bench, http.StatusOK, status)
+
+	bench.ResetTimer()
+	for bench.Loop() {
+		status, _ := callEndpoint(bench, "/user/1")
+		require.Equal(bench, http.StatusOK, status)
+	}
+}
+
 func TestMissingUser(test *testing.T) {
 	status, _ := callEndpoint(test, "/user/250001")
 	require.Equal(test, http.StatusNotFound, status)
@@ -66,8 +85,16 @@ func TestMissingUser(test *testing.T) {
 func TestUserCount(test *testing.T) {
 	status, body := callEndpoint(test, "/user-count")
 	require.Equal(test, http.StatusOK, status)
+	require.Equal(test, "250000", string(body))
+}
 
-	countFromString, err := strconv.ParseInt(string(body), 10, 64)
-	require.NoError(test, err)
-	require.Equal(test, int64(250_000), countFromString)
+func BenchmarkUserCount(bench *testing.B) {
+	status, _ := callEndpoint(bench, "/user-count")
+	require.Equal(bench, http.StatusOK, status)
+
+	bench.ResetTimer()
+	for bench.Loop() {
+		status, _ := callEndpoint(bench, "/user-count")
+		require.Equal(bench, http.StatusOK, status)
+	}
 }
