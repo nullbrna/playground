@@ -9,4 +9,6 @@ Experiments, learnings, and everything else unfinished.
 
 ## Running Tests
 
-1. Run `go test -count=1 ./tests/...` for all tests.
+| Module   | Command                        |
+| -------- | ------------------------------ |
+| `websrv` | `go test -count=1 ./tests/...` |
