@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fasthttp/websocket"
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 )
 

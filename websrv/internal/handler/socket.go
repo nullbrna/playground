@@ -30,6 +30,7 @@ func (this *Handler) handleSocketMessage(conn *ws.Conn) {
 		}
 
 		if messageType != ws.TextMessage {
+			zlog.Debug().Int("type", messageType).Msg("Unexpected message type")
 			continue
 		}
 

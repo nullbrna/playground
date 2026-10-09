@@ -28,8 +28,8 @@ func New(ctx context.Context) Store {
 	cfg.MinConns = 5
 	cfg.MaxConns = 25
 
-	// NOTE: Ignore the passed context deadline with [context.Background] so all
-	// minimum connections are loaded. Connections warm up asynchronously.
+	// NOTE: Replace the passed context deadline with [context.Background] so
+	// all minimum connections are loaded. Connections warm up asynchronously.
 	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		zlog.Fatal().Err(err).Msg("Creating database pool")

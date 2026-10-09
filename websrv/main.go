@@ -48,7 +48,7 @@ func newAndInitStore() store.Store {
 	return store.New(ctx)
 }
 
-func parsePortFromEnv() string {
+func parseAddrFromEnv() string {
 	port, found := os.LookupEnv("PORT")
 	if !found || len(port) == 0 {
 		return ":8080"
@@ -83,10 +83,10 @@ func main() {
 	var handlers handler.Handler
 	handlers.Init(app, &store)
 
-	port := parsePortFromEnv()
+	addr := parseAddrFromEnv()
 	zlog.Info().Msg("Starting server...")
 
-	if err := app.Listen(port); err != nil {
+	if err := app.Listen(addr); err != nil {
 		zlog.Error().Err(err).Msg("Server stopped abruptly")
 	}
 }
