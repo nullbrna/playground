@@ -1,5 +1,7 @@
 Experiments, learnings, and everything else unfinished.
 
+> **NOTE:** Any changes to `main.go` won't hot-reload the server.
+
 ## Adding A New Module
 
 1. Create the new folder.

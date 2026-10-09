@@ -3,6 +3,8 @@ module github.com/nullbrna/playground/websrv
 go 1.27.1
 
 require (
+	github.com/fasthttp/websocket v1.5.12
+	github.com/gofiber/contrib/v3/websocket v1.2.7
 	github.com/gofiber/contrib/v3/zerolog v1.1.6
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/jackc/pgx/v5 v5.11.0
@@ -22,6 +24,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/molecule-man/go-brrr v1.1.1 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
+	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.74.0 // indirect

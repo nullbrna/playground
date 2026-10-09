@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
-	flog "github.com/gofiber/contrib/v3/zerolog"
-	"github.com/gofiber/fiber/v3"
 	"github.com/nullbrna/playground/websrv/internal/handler"
 	"github.com/nullbrna/playground/websrv/internal/store"
+
+	flog "github.com/gofiber/contrib/v3/zerolog"
+	"github.com/gofiber/fiber/v3"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 )
@@ -57,25 +58,24 @@ func parsePortFromEnv() string {
 }
 
 func main() {
-	logMiddleware := flog.New(flog.Config{
-		Logger: &zlog.Logger,
-		Levels: []zerolog.Level{
-			zerolog.ErrorLevel, // All 5XX codes.
-			zerolog.WarnLevel,  // All 4XX codes.
-			zerolog.DebugLevel, // Everything else.
-		},
-		Fields: []string{
-			flog.FieldIP,
-			flog.FieldLatency,
-			flog.FieldStatus,
-			flog.FieldMethod,
-			flog.FieldPath,
-			flog.FieldError,
-		},
-	})
+	var logCfg flog.Config
+	logCfg.Logger = &zlog.Logger
+	logCfg.Levels = []zerolog.Level{
+		zerolog.ErrorLevel, // All 5XX codes.
+		zerolog.WarnLevel,  // All 4XX codes.
+		zerolog.DebugLevel, // Everything else.
+	}
+	logCfg.Fields = []string{
+		flog.FieldIP,
+		flog.FieldLatency,
+		flog.FieldStatus,
+		flog.FieldMethod,
+		flog.FieldPath,
+		flog.FieldError,
+	}
 
 	app := fiber.New()
-	app.Use(logMiddleware)
+	app.Use(flog.New(logCfg))
 
 	store := newAndInitStore()
 	defer store.Close()
