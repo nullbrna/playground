@@ -1,0 +1,33 @@
+services:
+    server:
+        build: .
+        ports:
+            - 8080:8080
+        environment:
+            LOG_LEVEL:    trace
+            DATABASE_URI: postgres://admin:password@database:5432/playground
+        depends_on:
+            database:
+                condition: service_healthy
+        volumes:
+            - ./go.mod:/app/go.mod
+            - ./go.sum:/app/go.sum
+            - ./main.go:/app/main.go
+            - ./handler:/app/handler
+            - ./store:/app/store
+
+    database:
+        image: postgres:16-alpine
+        ports:
+            - 5432:5432
+        environment:
+            POSTGRES_DB:       playground
+            POSTGRES_USER:     admin
+            POSTGRES_PASSWORD: password
+        healthcheck:
+            retries:  5
+            timeout:  5s
+            interval: 5s
+            test:     ["CMD-SHELL", "pg_isready -U admin -d playground"]
+        volumes:
+            - ./docker/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro

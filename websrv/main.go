@@ -1,0 +1,57 @@
+package main
+
+import (
+	"os"
+	"strings"
+
+	zlogcontrib "github.com/gofiber/contrib/v3/zerolog"
+	"github.com/gofiber/fiber/v3"
+	"github.com/nullbrna/playground/websrv/handler"
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
+)
+
+func initialiseLoggerWithinApp(app *fiber.App) {
+	zlog.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
+
+	loggingLevelFromEnv, levelFound := os.LookupEnv("LOG_LEVEL")
+	if levelFound && len(loggingLevelFromEnv) > 0 {
+		switch strings.ToLower(loggingLevelFromEnv) {
+		case "trace":
+			zerolog.SetGlobalLevel(zerolog.TraceLevel)
+		case "debug":
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		case "warn":
+			zerolog.SetGlobalLevel(zerolog.WarnLevel)
+		case "info":
+			zerolog.SetGlobalLevel(zerolog.InfoLevel)
+		case "error":
+			zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+		default:
+			zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		}
+	} else {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
+
+	var loggerContribConfig zlogcontrib.Config
+	loggerContribConfig.Logger = &zlog.Logger
+	loggerContribConfig.Levels = []zerolog.Level{
+		zerolog.ErrorLevel, // 5XX status codes.
+		zerolog.WarnLevel,  // 4XX status codes.
+		zerolog.DebugLevel, // XXX status codes.
+	}
+
+	loggerIntegration := zlogcontrib.New(loggerContribConfig)
+	app.Use(loggerIntegration)
+}
+
+func main() {
+	app := fiber.New()
+	initialiseLoggerWithinApp(app)
+
+	handler.InitRoutes(app)
+	if err := app.Listen(":8080"); err != nil {
+		zlog.Fatal().Err(err).Msg("Root error while running server")
+	}
+}
