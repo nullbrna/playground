@@ -10,11 +10,12 @@ services:
             database:
                 condition: service_healthy
         volumes:
+            - ./store:/app/store
             - ./go.mod:/app/go.mod
             - ./go.sum:/app/go.sum
             - ./main.go:/app/main.go
             - ./handler:/app/handler
-            - ./store:/app/store
+            - ./docker/air.toml:/app/docker/air.toml
 
     database:
         image: postgres:16-alpine
@@ -31,3 +32,10 @@ services:
             test:     ["CMD-SHELL", "pg_isready -U admin -d playground"]
         volumes:
             - ./docker/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+
+    mock-oauth:
+        image: ghcr.io/navikt/mock-oauth2-server:6.1.1
+        ports:
+            - 7654:8080
+        environment:
+            JSON_CONFIG: '{ "interactiveLogin": false }'

@@ -2,16 +2,16 @@ package handler
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/nullbrna/playground/websrv/store"
-	zlog "github.com/rs/zerolog/log"
+	"golang.org/x/oauth2"
 )
 
 type handler struct {
-	store *store.Store
+	store       *store.Store
+	oauthConfig oauth2.Config
 }
 
 func InitRoutes(app *fiber.App) {
@@ -19,20 +19,25 @@ func InitRoutes(app *fiber.App) {
 	defer cancel()
 
 	handlerStore := store.New(ctx)
+	oauthConfig := newInitialisedOAuthConfig()
+
 	var appHandlers handler
 	appHandlers.store = &handlerStore
+	appHandlers.oauthConfig = oauthConfig
 
-	app.Get("/", appHandlers.indexRoute)
+	app.Get("/auth/login", appHandlers.loginRoute)
 }
 
-func (this *handler) indexRoute(fib fiber.Ctx) error {
-	ctx, cancel := context.WithTimeout(fib.Context(), 1*time.Second)
-	defer cancel()
+func newInitialisedOAuthConfig() oauth2.Config {
+	var newConfig oauth2.Config
+	newConfig.ClientID = "client-identifier"
+	// [NOTE] These URLs should come from the environment.
+	newConfig.RedirectURL = "http://localhost:8080/auth/callback"
 
-	if err := this.store.HealthCheck(ctx); err != nil {
-		zlog.Error().Err(err).Msg("Health check on the database")
-		return fib.SendStatus(http.StatusServiceUnavailable)
-	}
+	var oauthProviderEndpoints oauth2.Endpoint
+	oauthProviderEndpoints.AuthURL = "http://localhost:7654/default/authorize"
+	oauthProviderEndpoints.TokenURL = "http://mock-oauth:8080/default/token"
 
-	return fib.SendStatus(http.StatusOK)
+	newConfig.Endpoint = oauthProviderEndpoints
+	return newConfig
 }

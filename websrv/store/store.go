@@ -13,16 +13,19 @@ type Store struct {
 }
 
 func New(ctx context.Context) Store {
-	var newStore Store
-
 	databaseURIFromEnv, uriFound := os.LookupEnv("DATABASE_URI")
 	if !uriFound || len(databaseURIFromEnv) == 0 {
 		zlog.Fatal().Str("key", "DATABASE_URI").Msg("Variable must be set/non-zero in length")
 	}
 
+	var newStore Store
+
 	poolConfig, err := pgxpool.ParseConfig(databaseURIFromEnv)
 	if err != nil {
 		zlog.Fatal().Err(err).Msg("Creating/parsing pool configuration")
+		// [NOTE] No-op as the above log exits with status code 1. Here to keep
+		// static analysis tools happy.
+		return newStore
 	}
 
 	poolConfig.MinConns = 1
@@ -31,24 +34,20 @@ func New(ctx context.Context) Store {
 	// [NOTE] We don't pass the given context, instead use [context.Background].
 	// The minimum connections are created asynchronously, the given context can
 	// cancel before it finishes making said connections.
-	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
+	newStore.pool, err = pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		zlog.Fatal().Err(err).Msg("Creating database pool")
+		// [NOTE] No-op as the above log exits with status code 1. Here to keep
+		// static analysis tools happy.
+		return newStore
 	}
 
-	if err := dbPool.Ping(ctx); err != nil {
+	if err := newStore.pool.Ping(ctx); err != nil {
 		zlog.Fatal().Err(err).Msg("Connecting/pinging database on creation")
+		// [NOTE] No-op as the above log exits with status code 1. Here to keep
+		// static analysis tools happy.
+		return newStore
 	}
 
-	newStore.pool = dbPool
 	return newStore
-}
-
-func (this *Store) HealthCheck(ctx context.Context) error {
-	queryStatement := `
-		SELECT 1;
-	`
-
-	var result int32
-	return this.pool.QueryRow(ctx, queryStatement).Scan(&result)
 }
