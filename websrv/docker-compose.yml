@@ -10,7 +10,6 @@ services:
             database:
                 condition: service_healthy
         volumes:
-            - ./store:/app/store
             - ./go.mod:/app/go.mod
             - ./go.sum:/app/go.sum
             - ./main.go:/app/main.go
@@ -38,4 +37,6 @@ services:
         ports:
             - 7654:8080
         environment:
-            JSON_CONFIG: '{ "interactiveLogin": false }'
+            JSON_CONFIG_PATH: /etc/oauth-provider.json
+        volumes:
+            - ./docker/oauth-provider.json:/etc/oauth-provider.json:ro

@@ -34,15 +34,15 @@ func initialiseLoggerWithinApp(app *fiber.App) {
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	}
 
-	var loggerContribConfig zlogcontrib.Config
-	loggerContribConfig.Logger = &zlog.Logger
-	loggerContribConfig.Levels = []zerolog.Level{
-		zerolog.ErrorLevel, // 5XX status codes.
-		zerolog.WarnLevel,  // 4XX status codes.
-		zerolog.DebugLevel, // XXX status codes.
-	}
+	loggerIntegration := zlogcontrib.New(zlogcontrib.Config{
+		Logger: &zlog.Logger,
+		Levels: []zerolog.Level{
+			zerolog.ErrorLevel, // 5XX status codes.
+			zerolog.WarnLevel,  // 4XX status codes.
+			zerolog.DebugLevel, // XXX status codes.
+		},
+	})
 
-	loggerIntegration := zlogcontrib.New(loggerContribConfig)
 	app.Use(loggerIntegration)
 }
 

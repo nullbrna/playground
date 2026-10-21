@@ -5,6 +5,7 @@ go 1.27.2
 require (
 	github.com/gofiber/contrib/v3/zerolog v1.1.7
 	github.com/gofiber/fiber/v3 v3.6.1
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/rs/zerolog v1.35.1
 	github.com/stretchr/testify v1.12.1

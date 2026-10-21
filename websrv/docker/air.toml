@@ -1,12 +1,12 @@
 [build]
-stop_on_error = true # Don't try and rebuild if/when static analysis fails.
+stop_on_error = true
 entrypoint = ["./tmp/main"]
 cmd = "go build -o ./tmp/main ."
 
 pre_cmd = [
     "go vet ./...",
     # Look for potential nil-based panics.
-    # [NOTE] Package is explicitly given, excluding dependencies.
+    # NOTE: Package is explicitly given, excluding dependencies.
     "nilaway -include-pkgs=github.com/nullbrna/playground/websrv ./...",
     # Ensure any missing cases are checked and reported.
     # <check>      Analyse enum and type switch statements.

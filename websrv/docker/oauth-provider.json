@@ -1,0 +1,19 @@
+{
+    "interactiveLogin": false,
+    "tokenCallbacks": [
+        {
+            "issuerId": "default",
+            "requestMappings": [
+                {
+                    "requestParam": "client_id",
+                    "match": "client-identifier",
+                    "claims": {
+                        "sub": "mock-provider-user",
+                        "name": "User OAuth",
+                        "email": "oauth@test.com"
+                    }
+                }
+            ]
+        }
+    ]
+}
