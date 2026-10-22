@@ -6,8 +6,6 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -41,7 +39,6 @@ func (this *Handler) login(fib fiber.Ctx) error {
 	verifier := oauth2.GenerateVerifier()
 
 	const lifetimeInSecs = 300
-
 	// 1. Save this short-lived, callback-scoped cookie in the browser.
 	// 2. The provider gets our state in the URL and echoes it to our callback.
 	// 3. The callback will compare and assert that value with this cookie.
@@ -58,7 +55,7 @@ func (this *Handler) login(fib fiber.Ctx) error {
 		oauth2.S256ChallengeOption(verifier),
 	)
 
-	zlog.Trace().Str("to", redirectTo).Msg("Redirecting to OAuth provider")
+	zlog.Trace().Msg("Redirecting to OAuth provider")
 	return fib.Redirect().Status(http.StatusFound).To(redirectTo)
 }
 
@@ -66,21 +63,21 @@ func (this *Handler) callback(fib fiber.Ctx) error {
 	stateCookie := fib.Cookies(oauthStateCookie)
 	verifierCookie := fib.Cookies(oauthVerifierCookie)
 
+	const immediateExpiry = -1
 	// Remove the temporary cookies made at login.
 	// NOTE: Same path and empty value ensures browser deletes it.
-	defer setOAuthSessionCookie(fib, oauthStateCookie, "", -1)
-	defer setOAuthSessionCookie(fib, oauthVerifierCookie, "", -1)
+	defer setOAuthSessionCookie(fib, oauthStateCookie, "", immediateExpiry)
+	defer setOAuthSessionCookie(fib, oauthVerifierCookie, "", immediateExpiry)
 
 	providerState, authorisationCode := fib.Query("state"), fib.Query("code")
-	if err := validateRedirectFromProvider(
+	if statusCode := validateRedirectFromProvider(
 		fib,
 		providerState,
 		authorisationCode,
 		stateCookie,
 		verifierCookie,
-	); err != nil {
-		zlog.Error().Err(err).Msg("Invalid redirect from the provider")
-		return fib.SendStatus(http.StatusBadRequest)
+	); statusCode != http.StatusOK {
+		return fib.SendStatus(statusCode)
 	}
 
 	ctx, cancel := context.WithTimeout(fib.Context(), 1*time.Second)
@@ -90,68 +87,70 @@ func (this *Handler) callback(fib fiber.Ctx) error {
 	// 2. Provider validates the verifier against the challenge sent earlier.
 	// 3. The returned token acts as a credential to get the user profile.
 	// 4. User-unique subject is returned along with profile fields.
-	profile, err := getUserProviderProfile(
+	profile, statusCode := getUserProviderProfile(
 		ctx,
 		this.OAuthConfig,
 		authorisationCode,
 		verifierCookie,
 	)
-	if err != nil {
-		zlog.Error().Err(err).Msg("Fetching the user profile from the provider")
-		return fib.SendStatus(http.StatusBadGateway)
+	if statusCode != http.StatusOK {
+		return fib.SendStatus(statusCode)
 	}
 
 	// 1. Set/update the user by its unique provider subject.
 	// 2. Create a refresh token. Save it, keyed by the user.
 	// 3. Create an access token. Save both tokens as cookies.
-	if err := saveUserToDBAndSession(
+	if statusCode := saveUserToDBAndSession(
 		ctx,
 		fib,
 		this,
 		&profile,
-	); err != nil {
-		zlog.Error().Err(err).Msg("Saving user and setting their session")
-		return fib.SendStatus(http.StatusBadGateway)
+	); statusCode != http.StatusOK {
+		return fib.SendStatus(statusCode)
 	}
 
 	return fib.SendStatus(http.StatusNoContent)
 }
 
-func setOAuthSessionCookie(fib fiber.Ctx, name, value string, maxAge int) {
-	newCookie := fiber.Cookie{
+func setOAuthSessionCookie(fib fiber.Ctx, name, value string, ageInSecs int) {
+	fib.Cookie(&fiber.Cookie{
 		Name:     name,
 		Path:     "/auth/callback",
 		Value:    value,
-		MaxAge:   maxAge,
+		MaxAge:   ageInSecs,
 		Secure:   false, // NOTE: Should be changed for HTTPS traffic.
 		HTTPOnly: true,
 		SameSite: "Lax",
-	}
-
-	fib.Cookie(&newCookie)
+	})
 }
 
 func validateRedirectFromProvider(
 	fib fiber.Ctx,
 	providerState, authorisationCode, stateCookie, verifierCookie string,
-) error {
+) int {
+	if err := fib.Query("error"); len(err) > 0 {
+		zlog.Error().Str("err", err).Msg("Error found in provider redirect")
+		return http.StatusBadRequest
+	}
+
 	if len(providerState) == 0 || len(authorisationCode) == 0 {
-		return errors.New("missing state/authorisation code from provider")
+		zlog.Error().Msg("Missing state/authorisation code from provider")
+		return http.StatusBadRequest
 	}
 
 	if len(stateCookie) == 0 || len(verifierCookie) == 0 {
-		return errors.New("missing state/verifier set at login")
+		zlog.Error().Msg("Missing state/verifier set at login")
+		return http.StatusBadRequest
 	}
 
+	// NOTE: Mitigate CSRF. Always compare every byte, not stopping at the first
+	// mismatch, with [subtle.ConstantTimeCompare].
 	if subtle.ConstantTimeCompare([]byte(providerState), []byte(stateCookie)) != 1 {
-		return errors.New("mismatch between stored/provided state")
+		zlog.Error().Msg("Mismatch between saved/provided state")
+		return http.StatusBadRequest
 	}
 
-	if err := fib.Query("error"); len(err) > 0 {
-		return fmt.Errorf("error found in provider redirect: %v", err)
-	}
-
-	return nil
+	return http.StatusOK
 }
 
 type providerProfile struct {
@@ -164,14 +163,15 @@ func getUserProviderProfile(
 	ctx context.Context,
 	oauthConfig *oauth2.Config,
 	authorisationCode, verifierCookie string,
-) (providerProfile, error) {
+) (providerProfile, int) {
 	providerToken, err := oauthConfig.Exchange(
 		ctx,
 		authorisationCode,
 		oauth2.VerifierOption(verifierCookie),
 	)
 	if err != nil {
-		return providerProfile{}, err
+		zlog.Error().Err(err).Msg("Exchanging authorisation code for token")
+		return providerProfile{}, http.StatusBadGateway
 	}
 
 	profileRequest, err := http.NewRequestWithContext(
@@ -181,29 +181,37 @@ func getUserProviderProfile(
 		nil,
 	)
 	if err != nil {
-		return providerProfile{}, err
+		zlog.Error().Err(err).Msg("Building provider profile request")
+		return providerProfile{}, http.StatusInternalServerError
 	}
 
 	profileResponse, err := oauthConfig.Client(ctx, providerToken).Do(profileRequest)
 	if err != nil {
-		return providerProfile{}, err
+		zlog.Error().Err(err).Msg("Sending provider profile request")
+		return providerProfile{}, http.StatusBadGateway
 	}
 
 	defer profileResponse.Body.Close()
 	if profileResponse.StatusCode != http.StatusOK {
-		return providerProfile{}, errors.New("unexpected status code from provider")
+		zlog.Error().Msg("Bad status code returned from provider profile request")
+		return providerProfile{}, http.StatusBadGateway
 	}
 
+	// Through OIDC, we've requested a certain shape of user profile. This isn't
+	// a guarantee however i.e. a provider may not abide by OIDC.
+	// NOTE: https://openid.net/developers/how-connect-works
 	var profile providerProfile
 	if err := json.NewDecoder(profileResponse.Body).Decode(&profile); err != nil {
-		return providerProfile{}, err
+		zlog.Error().Err(err).Msg("Decoding provider profile response")
+		return providerProfile{}, http.StatusInternalServerError
 	}
 
 	if len(profile.Name) == 0 || len(profile.Email) == 0 || len(profile.Sub) == 0 {
-		return providerProfile{}, errors.New("empty data in user from provider")
+		zlog.Error().Msg("Missing/empty data returned from provider profile request")
+		return providerProfile{}, http.StatusBadGateway
 	}
 
-	return profile, nil
+	return profile, http.StatusOK
 }
 
 func saveUserToDBAndSession(
@@ -211,7 +219,7 @@ func saveUserToDBAndSession(
 	fib fiber.Ctx,
 	handler *Handler,
 	profile *providerProfile,
-) error {
+) int {
 	savedUser, err := handler.UpsertUser(
 		ctx,
 		profile.Name,
@@ -219,17 +227,20 @@ func saveUserToDBAndSession(
 		profile.Sub,
 	)
 	if err != nil {
-		return fmt.Errorf("trying to upsert user: %v", err)
+		zlog.Error().Err(err).Msg("Upserting returned profile from provider")
+		return http.StatusInternalServerError
 	}
 
 	accessToken, err := newTokenFromKind(savedUser.id, accessKind)
 	if err != nil {
-		return fmt.Errorf("creating a new access token: %v", err)
+		zlog.Error().Err(err).Msg("Creating a new access token")
+		return http.StatusInternalServerError
 	}
 
 	refreshToken, err := newTokenFromKind(savedUser.id, refreshKind)
 	if err != nil {
-		return fmt.Errorf("creating a new refresh token: %v", err)
+		zlog.Error().Err(err).Msg("Creating a new refresh token")
+		return http.StatusInternalServerError
 	}
 
 	if err := handler.CreateRefreshToken(
@@ -238,10 +249,13 @@ func saveUserToDBAndSession(
 		savedUser.id,
 		refreshToken.expiresAt,
 	); err != nil {
-		return fmt.Errorf("saving a new refresh token: %v", err)
+		zlog.Error().Err(err).Msg("Saving the newly made refresh token")
+		return http.StatusInternalServerError
 	}
 
+	zlog.Debug().Int64("userId", savedUser.id).Msg("Saved user from provider")
 	accessToken.putIntoCookie(fib)
 	refreshToken.putIntoCookie(fib)
-	return nil
+
+	return http.StatusOK
 }

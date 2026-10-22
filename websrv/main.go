@@ -14,9 +14,9 @@ import (
 func initialiseLoggerWithinApp(app *fiber.App) {
 	zlog.Logger = zerolog.New(os.Stdout).With().Timestamp().Logger()
 
-	loggingLevelFromEnv, levelFound := os.LookupEnv("LOG_LEVEL")
-	if levelFound && len(loggingLevelFromEnv) > 0 {
-		switch strings.ToLower(loggingLevelFromEnv) {
+	levelFromEnv, levelFound := os.LookupEnv("LOG_LEVEL")
+	if levelFound && len(levelFromEnv) > 0 {
+		switch strings.ToLower(levelFromEnv) {
 		case "trace":
 			zerolog.SetGlobalLevel(zerolog.TraceLevel)
 		case "debug":
@@ -36,6 +36,15 @@ func initialiseLoggerWithinApp(app *fiber.App) {
 
 	loggerIntegration := zlogcontrib.New(zlogcontrib.Config{
 		Logger: &zlog.Logger,
+		Fields: []string{
+			zlogcontrib.FieldLatency,
+			zlogcontrib.FieldStatus,
+			zlogcontrib.FieldMethod,
+			// Although the others are all default, we need to replace
+			// [zlogcontrib.FieldURL] due to potential sensitive information.
+			zlogcontrib.FieldRoute,
+			zlogcontrib.FieldError,
+		},
 		Levels: []zerolog.Level{
 			zerolog.ErrorLevel, // 5XX status codes.
 			zerolog.WarnLevel,  // 4XX status codes.

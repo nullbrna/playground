@@ -26,12 +26,12 @@ func InitRoutes(app *fiber.App) {
 }
 
 func newConnectedDBPool(ctx context.Context) *pgxpool.Pool {
-	databaseURIFromEnv, uriFound := os.LookupEnv("DATABASE_URI")
-	if !uriFound || len(databaseURIFromEnv) == 0 {
+	uriFromEnv, uriFound := os.LookupEnv("DATABASE_URI")
+	if !uriFound || len(uriFromEnv) == 0 {
 		zlog.Fatal().Str("key", "DATABASE_URI").Msg("Variable must be set/non-zero in length")
 	}
 
-	poolConfig, err := pgxpool.ParseConfig(databaseURIFromEnv)
+	poolConfig, err := pgxpool.ParseConfig(uriFromEnv)
 	if err != nil {
 		zlog.Fatal().Err(err).Msg("Creating/parsing pool configuration")
 		return nil // NOTE: No-op as [zlog.Fatal] exits code 1.
@@ -58,7 +58,7 @@ func newConnectedDBPool(ctx context.Context) *pgxpool.Pool {
 }
 
 func newInitialisedOAuthConfig() oauth2.Config {
-	newConfig := oauth2.Config{
+	return oauth2.Config{
 		ClientID: "client-identifier",
 		Scopes:   []string{"openid", "profile", "email"},
 		// NOTE: These URLs should come from the environment.
@@ -68,6 +68,4 @@ func newInitialisedOAuthConfig() oauth2.Config {
 			TokenURL: "http://mock-oauth:8080/default/token",
 		},
 	}
-
-	return newConfig
 }
