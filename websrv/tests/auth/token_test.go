@@ -14,7 +14,7 @@ func TestAuthRotatesRefreshToken(test *testing.T) {
 
 	// Authentication cookies are set under the authenticated path. In order to
 	// find the related cookies, construct a URL to match said path.
-	urlForMatchingAuthCookies, err := url.Parse(tests.AuthRefreshRoute)
+	urlForMatchingAuthCookies, err := url.Parse(tests.AuthRefreshURL)
 	require.NoError(test, err)
 
 	oldRefreshCookie := tests.GetACookieFromHeaderList(
@@ -23,7 +23,7 @@ func TestAuthRotatesRefreshToken(test *testing.T) {
 	)
 	require.NotNil(test, oldRefreshCookie)
 
-	tokenRefreshResponse, err := authenticatedClient.Post(tests.AuthRefreshRoute, "", nil)
+	tokenRefreshResponse, err := authenticatedClient.Post(tests.AuthRefreshURL, "", nil)
 	require.NoError(test, err)
 	defer tokenRefreshResponse.Body.Close()
 
@@ -34,15 +34,15 @@ func TestAuthRotatesRefreshToken(test *testing.T) {
 	)
 	require.NotNil(test, newRefreshCookie)
 
-	require.NotEmpty(test, newRefreshCookie)
-	require.NotEqual(test, oldRefreshCookie, newRefreshCookie)
+	require.NotEmpty(test, newRefreshCookie.Value)
+	require.NotEqual(test, oldRefreshCookie.Value, newRefreshCookie.Value)
 }
 
 func TestAuthCannotRotateMissingRefreshToken(test *testing.T) {
 	authenticatedClient := tests.NewAuthenticatedClient(test)
 	authenticatedClient.Jar = nil
 
-	tokenRefreshResponse, err := authenticatedClient.Post(tests.AuthRefreshRoute, "", nil)
+	tokenRefreshResponse, err := authenticatedClient.Post(tests.AuthRefreshURL, "", nil)
 	require.NoError(test, err)
 	defer tokenRefreshResponse.Body.Close()
 
@@ -52,7 +52,7 @@ func TestAuthCannotRotateMissingRefreshToken(test *testing.T) {
 func TestAuthCannotRotateInvalidRefreshToken(test *testing.T) {
 	authenticatedClient := tests.NewAuthenticatedClient(test)
 
-	urlForMatchingAuthCookies, err := url.Parse(tests.AuthRefreshRoute)
+	urlForMatchingAuthCookies, err := url.Parse(tests.AuthRefreshURL)
 	require.NoError(test, err)
 
 	var overwrittenRefreshToken http.Cookie
@@ -67,7 +67,7 @@ func TestAuthCannotRotateInvalidRefreshToken(test *testing.T) {
 		[]*http.Cookie{&overwrittenRefreshToken},
 	)
 
-	tokenRefreshResponse, err := authenticatedClient.Post(tests.AuthRefreshRoute, "", nil)
+	tokenRefreshResponse, err := authenticatedClient.Post(tests.AuthRefreshURL, "", nil)
 	require.NoError(test, err)
 	defer tokenRefreshResponse.Body.Close()
 

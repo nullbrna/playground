@@ -100,7 +100,8 @@ func hashTokenValue(tokenValue string) []byte {
 }
 
 type authClaims struct {
-	UserId int64 `json:"userId"`
+	UserId    int64         `json:"userId"`
+	TokenKind authTokenKind `json:"tokenKind"`
 	jwt.RegisteredClaims
 }
 
@@ -143,7 +144,7 @@ func newTokenPair(userId int64) (authToken, authToken, int) {
 	return newAccessToken, newRefreshToken, http.StatusOK
 }
 
-func decodeTokenFromKind(tokenValue string) (int64, int) {
+func decodeTokenFromKind(tokenValue string, tokenKind authTokenKind) (int64, int) {
 	tokenValidator := func(tokenToValidate *jwt.Token) (any, error) {
 		if tokenToValidate.Method != jwt.SigningMethodHS256 {
 			return nil, errors.New("incorrect token method when decoding")
@@ -166,7 +167,7 @@ func decodeTokenFromKind(tokenValue string) (int64, int) {
 		return -1, http.StatusUnauthorized
 	}
 
-	if parseResult == nil || !parseResult.Valid {
+	if parseResult == nil || !parseResult.Valid || decodedClaims.TokenKind != tokenKind {
 		log.Error().Err(err).Msg("Invalid structure of decoded claims")
 		return -1, http.StatusUnauthorized
 	}

@@ -97,7 +97,7 @@ func (this *InjectedHandler) rotateRefreshToken(
 	oldHash, newHash []byte,
 	expiresAt time.Time,
 ) int {
-	const query = `
+	const queryStatement = `
 		UPDATE tokens
 		SET    hash    = $1, expires_at = $2
 		WHERE  user_id = $3
@@ -105,7 +105,7 @@ func (this *InjectedHandler) rotateRefreshToken(
 		AND    expires_at > NOW();
 	`
 
-	tag, err := this.DBPool.Exec(requestContext, query, newHash, expiresAt, userId, oldHash)
+	tag, err := this.DBPool.Exec(requestContext, queryStatement, newHash, expiresAt, userId, oldHash)
 	if err != nil {
 		log.Error().Err(err).Msg("Rotating a refresh token")
 		return http.StatusInternalServerError

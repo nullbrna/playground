@@ -11,10 +11,10 @@ import (
 )
 
 const (
-	AuthLoginRoute     = "http://localhost:8080/auth/login"
-	AuthLogoutRoute    = "http://localhost:8080/auth/logout"
-	AuthRefreshRoute   = "http://localhost:8080/auth/refresh"
-	AuthProtectedRoute = "http://localhost:8080/auth/myself"
+	AuthLoginURL     = "http://localhost:8080/auth/login"
+	AuthLogoutURL    = "http://localhost:8080/auth/logout"
+	AuthRefreshURL   = "http://localhost:8080/auth/refresh"
+	AuthProtectedURL = "http://localhost:8080/auth/myself"
 
 	defaultClientTimeout = 1 * time.Second
 )
@@ -44,7 +44,7 @@ func NewAuthenticatedClient(test *testing.T) http.Client {
 	client := BasicHTTPClient
 	client.Jar = authenticatedCookieJar
 
-	loginResponse, err := client.Get(AuthLoginRoute)
+	loginResponse, err := client.Get(AuthLoginURL)
 	require.NoError(test, err)
 	defer loginResponse.Body.Close()
 

@@ -10,7 +10,7 @@ import (
 )
 
 func TestAuthLoginRedirectsToTheProvider(test *testing.T) {
-	loginResponse, err := tests.NoFollowHTTPClient.Get(tests.AuthLoginRoute)
+	loginResponse, err := tests.NoFollowHTTPClient.Get(tests.AuthLoginURL)
 	require.NoError(test, err)
 	defer loginResponse.Body.Close()
 
@@ -25,7 +25,7 @@ func TestAuthLoginRedirectsToTheProvider(test *testing.T) {
 }
 
 func TestAuthLoginStoresOAuthCookies(test *testing.T) {
-	loginResponse, err := tests.NoFollowHTTPClient.Get(tests.AuthLoginRoute)
+	loginResponse, err := tests.NoFollowHTTPClient.Get(tests.AuthLoginURL)
 	require.NoError(test, err)
 	defer loginResponse.Body.Close()
 
@@ -40,14 +40,14 @@ func TestAuthLoginStoresOAuthCookies(test *testing.T) {
 }
 
 func TestAuthLoginPermitsProtectedRouteRequests(test *testing.T) {
-	unauthenticatedResponse, err := tests.BasicHTTPClient.Get(tests.AuthProtectedRoute)
+	unauthenticatedResponse, err := tests.BasicHTTPClient.Get(tests.AuthProtectedURL)
 	require.NoError(test, err)
 	defer unauthenticatedResponse.Body.Close()
 
 	require.Equal(test, http.StatusUnauthorized, unauthenticatedResponse.StatusCode)
 	authenticatedClient := tests.NewAuthenticatedClient(test)
 
-	authenticatedResponse, err := authenticatedClient.Get(tests.AuthProtectedRoute)
+	authenticatedResponse, err := authenticatedClient.Get(tests.AuthProtectedURL)
 	require.NoError(test, err)
 	defer authenticatedResponse.Body.Close()
 
@@ -57,16 +57,19 @@ func TestAuthLoginPermitsProtectedRouteRequests(test *testing.T) {
 func TestAuthLogoutClearsSession(test *testing.T) {
 	authenticatedClient := tests.NewAuthenticatedClient(test)
 
-	logoutResponse, err := authenticatedClient.Post(tests.AuthLogoutRoute, "", nil)
+	logoutResponse, err := authenticatedClient.Post(tests.AuthLogoutURL, "", nil)
 	require.NoError(test, err)
 	defer logoutResponse.Body.Close()
 
 	require.Equal(test, http.StatusNoContent, logoutResponse.StatusCode)
 	accessCookie := tests.GetACookieFromHeaderList(logoutResponse.Cookies(), "token.access")
 	refreshCookie := tests.GetACookieFromHeaderList(logoutResponse.Cookies(), "token.refresh")
+	require.NotNil(test, accessCookie)
+	require.NotNil(test, refreshCookie)
+
 	// Logging out sets the cookies to be deleted by clearing the value and
 	// negating the cookie age. The path must equal the cookie path also.
-	// --
+	// ---
 	// NOTE: Technically the cookie still exists until the client (e.g. browser)
 	// deletes said cookie.
 	require.Empty(test, accessCookie.Value)
@@ -74,7 +77,7 @@ func TestAuthLogoutClearsSession(test *testing.T) {
 	require.Negative(test, accessCookie.MaxAge)
 	require.Negative(test, refreshCookie.MaxAge)
 
-	unauthenticatedResponse, err := authenticatedClient.Get(tests.AuthProtectedRoute)
+	unauthenticatedResponse, err := authenticatedClient.Get(tests.AuthProtectedURL)
 	require.NoError(test, err)
 	defer unauthenticatedResponse.Body.Close()
 

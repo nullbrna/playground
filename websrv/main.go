@@ -59,7 +59,7 @@ func initialiseLoggerWithinApp(fiberInstance *fiber.App) {
 		zlogcont.FieldLatency,
 		zlogcont.FieldStatus,
 		zlogcont.FieldMethod,
-		// Replace [zlogcontrib.FieldURL] to avoid a potential leak.
+		// Replace [zlogcont.FieldURL] to avoid a potential leak.
 		zlogcont.FieldRoute,
 		zlogcont.FieldError,
 	}

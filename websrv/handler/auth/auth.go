@@ -94,7 +94,7 @@ func (this *InjectedHandler) callbackFromOAuthProvider(requestInstance fiber.Ctx
 	)
 	defer queryContextCancel()
 
-	// 1. Exchange the verifier for a one-time authorisation code.
+	// 1. Exchange the authorisation code and verifier for a one-time token.
 	// 2. Provider validates the verifier against the challenge sent at login.
 	// 3. The returned token acts as a credential to get the user profile.
 	// 4. User-unique subject is returned along with profile fields.
@@ -125,7 +125,7 @@ func (this *InjectedHandler) protectedMiddleware(requestInstance fiber.Ctx) erro
 	accessCookieName := accessTokenKind.cookieName()
 	accessCookie := requestInstance.Cookies(accessCookieName)
 
-	userIdFromAccessCookie, statusCode := decodeTokenFromKind(accessCookie)
+	userIdFromAccessCookie, statusCode := decodeTokenFromKind(accessCookie, accessTokenKind)
 	if statusCode != http.StatusOK {
 		return requestInstance.SendStatus(statusCode)
 	}
@@ -154,7 +154,7 @@ func (this *InjectedHandler) logoutFromOauth(requestInstance fiber.Ctx) error {
 	unsetAuthTokenCookie(requestInstance, accessCookieName, accessCookiePath)
 	unsetAuthTokenCookie(requestInstance, refreshCookieName, refreshCookiePath)
 
-	userIdFromRefreshCookie, statusCode := decodeTokenFromKind(refreshCookie)
+	userIdFromRefreshCookie, statusCode := decodeTokenFromKind(refreshCookie, refreshTokenKind)
 	if statusCode != http.StatusOK {
 		return requestInstance.SendStatus(statusCode)
 	}
@@ -189,7 +189,7 @@ func (this *InjectedHandler) refreshOAuthTokens(requestInstance fiber.Ctx) error
 		}
 	}()
 
-	userIdFromRefreshCookie, statusCode := decodeTokenFromKind(refreshCookie)
+	userIdFromRefreshCookie, statusCode := decodeTokenFromKind(refreshCookie, refreshTokenKind)
 	if statusCode != http.StatusOK {
 		shouldClearCookies = true
 		return requestInstance.SendStatus(statusCode)
