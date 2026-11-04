@@ -1,0 +1,16 @@
+[build]
+stop_on_error = true
+entrypoint = ["./tmp/main"]
+cmd = "go build -o ./tmp/main ."
+
+pre_cmd = [
+    # Single-source lint runner/static analysis.
+    # ---
+    # <c> Path to the custom settings.
+    "golangci-lint fmt -c ./docker/golangci.yml ./...",
+    "golangci-lint run -c ./docker/golangci.yml ./...",
+    # Look for potential nil-based panics.
+    # ---
+    # <include-pkgs> Package is explicitly given to exclude dependencies.
+    "nilaway -include-pkgs=github.com/nullbrna/playground/websrv ./...",
+]

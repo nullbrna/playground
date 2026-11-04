@@ -1,0 +1,66 @@
+version: "2"
+
+linters:
+    enable:
+        # Complementary tool to the Go built-in analysis.
+        - staticcheck
+        # Missing cases are checked and reported.
+        - exhaustive
+        # Unchecked/ignored errors.
+        - errcheck
+        # Invalid error wrapping/inspection.
+        - errorlint
+        # Common security issues.
+        - gosec
+        # Unclosed HTTP response bodies.
+        - bodyclose
+        # Missing context passed to network calls.
+        - noctx
+        # Returning nil instead of an error.
+        - nilerr
+        # Unnecessary loop variable copies.
+        - copyloopvar
+        # Linting rule suppression.
+        - nolintlint
+
+    exclusions:
+        rules:
+            - path: "_test.go"
+              linters:
+                  - errcheck
+                  - noctx
+
+    settings:
+        staticcheck:
+            checks:
+                - all
+                - "-ST*"
+
+        exhaustive:
+            check:
+                - typeswitch
+                - mapliteral
+            # Only perform analysis on package-defined constants.
+            package-scope-only: true
+            # A default case does not count as exhaustive.
+            default-signifies-exhaustive: false
+
+        errcheck:
+            # Unchecked type assertions.
+            check-type-assertions: true
+            # Errors assigned to a blank identifier.
+            check-blank: true
+
+        nolintlint:
+            # Require an explanation for no-lint directives.
+            require-explanation: true
+            # Explicit linter names.
+            require-specific: true
+
+formatters:
+    enable:
+        - golines
+
+    settings:
+        golines:
+            max-len: 120
