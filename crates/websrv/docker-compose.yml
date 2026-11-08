@@ -1,0 +1,35 @@
+services:
+    server:
+        build: .
+        ports:
+            - 8080:8080
+        environment:
+            RUST_LOG: trace,axum=warn,sqlx=warn
+            DATABASE_URI: postgres://admin:password@database:5432/playground
+        depends_on:
+            database:
+                condition: service_healthy
+        volumes:
+            - ./src:/app/src
+            - ./Cargo.toml:/app/Cargo.toml
+
+    database:
+        image: postgres:16-alpine
+        ports:
+            - 5432:5432
+        environment:
+            POSTGRES_USER: admin
+            POSTGRES_DB: playground
+            POSTGRES_PASSWORD: password
+        # Maps to the dependent section from our server. Check for server
+        # availability - NOT successful authentication.
+        # ---
+        # <U> User to authenticate as.
+        # <d> Database name to connect to.
+        healthcheck:
+            retries: 5
+            timeout: 5s
+            interval: 5s
+            test: ["CMD-SHELL", "pg_isready -U admin -d playground"]
+        volumes:
+            - ./docker/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro

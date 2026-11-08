@@ -1,0 +1,14 @@
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS users (
+    id           BIGINT      GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name         TEXT        NOT NULL,
+    email        TEXT        NOT NULL UNIQUE,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO users (name, email)
+SELECT            FORMAT('User %s', index), FORMAT('%s@test.com', index)
+FROM              GENERATE_SERIES(1, 250_000) AS series(index);
+
+COMMIT;
