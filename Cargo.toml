@@ -1,3 +1,18 @@
 [workspace]
-members = ["crates/*"]
 resolver = "3"
+members = ["crates/*"]
+
+[profile.release]
+# During compilation, optimise across crates. May improve runtime performance
+# and decrease binary size at the cost of system usage during compilation.
+# ---
+# NOTE: Not a guaranteed benefit, the <thin> alternative may perform better.
+lto = "fat"
+# On panic, immediately abort instead of running destructors. May slightly
+# shrink the binary size at the cost of panic recovery.
+panic = "abort"
+# Further symbol stripping (than just debug symbols) for a smaller binary size.
+strip = "symbols"
+# Compile the entire project as one crate. May improve runtime performance and
+# decrease binary size at the cost of compilation time.
+codegen-units = 1
